@@ -985,9 +985,11 @@ impl SodaClient {
             table.get(&track_id).cloned()
         }
         .unwrap_or_else(|| {
-            let mut song = Song::default();
-            song.id = track_id.clone();
-            song.extra.insert("track_id".to_string(), track_id.clone());
+            let mut song = Song {
+                id: track_id.clone(),
+                ..Default::default()
+            };
+            song.extra.insert("track_id".to_string(), track_id);
             song
         });
         let raw = self.soda.get_lyrics(&song)?;
