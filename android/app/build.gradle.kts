@@ -14,8 +14,8 @@ android {
         applicationId = "org.sodahub.sodam"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.3.10"
+        versionCode = 1
+        versionName = "0.1.0"
 
         ndk {
             // 手机先只出 arm64-v8a。模拟器需再跑 scripts/android-ffi.sh x86_64，
