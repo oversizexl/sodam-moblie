@@ -962,14 +962,16 @@ impl SodaClient {
     /// 所以查回原始 Song 再取 `id`。
     pub fn like_track(&self, track_id: String) -> Result<(), SodaError> {
         let song = song_for(self, &track_id)?;
-        self.soda.collect_media(&[MediaRef::track(song.id.clone())])?;
+        self.soda
+            .collect_media(&[MediaRef::track(song.id.clone())])?;
         Ok(())
     }
 
     /// 取消喜欢。
     pub fn unlike_track(&self, track_id: String) -> Result<(), SodaError> {
         let song = song_for(self, &track_id)?;
-        self.soda.uncollect_media(&[MediaRef::track(song.id.clone())])?;
+        self.soda
+            .uncollect_media(&[MediaRef::track(song.id.clone())])?;
         Ok(())
     }
 
@@ -985,8 +987,7 @@ impl SodaClient {
         .unwrap_or_else(|| {
             let mut song = Song::default();
             song.id = track_id.clone();
-            song.extra
-                .insert("track_id".to_string(), track_id.clone());
+            song.extra.insert("track_id".to_string(), track_id.clone());
             song
         });
         let raw = self.soda.get_lyrics(&song)?;
