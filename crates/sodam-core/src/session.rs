@@ -83,13 +83,13 @@ impl Session {
     /// 第五、六个字段记录「没有更高档位」的结论，第七个记录试听补整曲的最近一次尝试。
     /// 后两者必须分开：试听不是「曲库没有更高档位」，权益一变就可能拿到整曲。
     fn cached_info(&self, track_id: &str) -> Option<CachedInfo> {
-        let path = crate::audio::cache_dir().join(format!("{track_id}-{}.m4a", self.quality_tag()));
+        let path = crate::cache::cache_dir().join(format!("{track_id}-{}.m4a", self.quality_tag()));
         let actual = std::fs::metadata(&path).ok()?.len();
         if actual == 0 {
             return None;
         }
         let quality_path =
-            crate::audio::cache_dir().join(format!("{track_id}-{}.quality", self.quality_tag()));
+            crate::cache::cache_dir().join(format!("{track_id}-{}.quality", self.quality_tag()));
         let text = std::fs::read_to_string(&quality_path).ok()?;
         let meta = crate::cache::parse_sidecar(&text, actual)?;
         let now = crate::cache::now_epoch_secs();
@@ -106,7 +106,7 @@ impl Session {
     }
 
     pub fn cached_track(&self, track_id: &str) -> Option<CachedTrack> {
-        let path = crate::audio::cache_dir().join(format!("{track_id}-{}.m4a", self.quality_tag()));
+        let path = crate::cache::cache_dir().join(format!("{track_id}-{}.m4a", self.quality_tag()));
         let lease = crate::cache::CacheLease::acquire(&path);
         let info = self.cached_info(track_id)?;
         let _ = std::fs::OpenOptions::new()
@@ -532,7 +532,7 @@ impl Session {
     ) -> Result<CachedTrack, crate::failure::PlaybackFailure> {
         use crate::failure::{classify, PlaybackFailure, RecoveryAction, Retryability, Stage};
 
-        let dir = crate::audio::cache_dir();
+        let dir = crate::cache::cache_dir();
         std::fs::create_dir_all(&dir).map_err(|err| {
             PlaybackFailure::new(
                 Stage::Unpack,
@@ -669,7 +669,7 @@ impl Session {
     ) -> Result<CachedTrack, crate::failure::PlaybackFailure> {
         use crate::failure::{classify, PlaybackFailure, RecoveryAction, Retryability, Stage};
 
-        let dir = crate::audio::cache_dir();
+        let dir = crate::cache::cache_dir();
         let tag = self.quality_tag();
         let path = dir.join(format!("{0}-{tag}.m4a", track.id));
         let quality_path = dir.join(format!("{0}-{tag}.quality", track.id));
@@ -966,7 +966,7 @@ impl Session {
         if url.is_empty() {
             return None;
         }
-        let dir = crate::audio::cover_cache_dir().join("original");
+        let dir = crate::cache::cover_cache_dir().join("original");
         std::fs::create_dir_all(&dir).ok()?;
         let path = dir.join(format!("{:016x}.img", hash_url(url)));
         if std::fs::metadata(&path)
@@ -995,14 +995,14 @@ impl Session {
 
     /// 删除某张缩略图封面缓存；重试时用。
     pub fn invalidate_cover_path(&self, url: &str) -> bool {
-        let path = crate::audio::cover_cache_dir()
+        let path = crate::cache::cover_cache_dir()
             .join(format!("{:016x}-{COVER_MAX_EDGE}.img", hash_url(url)));
         std::fs::remove_file(path).is_ok()
     }
 
     /// 删除某张原图封面缓存；重试时用。
     pub fn invalidate_original_cover(&self, url: &str) -> bool {
-        let path = crate::audio::cover_cache_dir()
+        let path = crate::cache::cover_cache_dir()
             .join("original")
             .join(format!("{:016x}.img", hash_url(url)));
         std::fs::remove_file(path).is_ok()
@@ -1013,7 +1013,7 @@ impl Session {
         if url.is_empty() {
             return None;
         }
-        let dir = crate::audio::cover_cache_dir();
+        let dir = crate::cache::cover_cache_dir();
         std::fs::create_dir_all(&dir).ok()?;
         // 文件名带目标边长：换尺寸/旧的全尺寸缓存不会混用
         let path = dir.join(format!("{:016x}-{COVER_MAX_EDGE}.img", hash_url(url)));

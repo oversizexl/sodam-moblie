@@ -63,6 +63,7 @@ pub(crate) fn download_lock(path: &Path) -> Arc<Mutex<()>> {
 
 /// 解码失败时成对丢弃坏缓存；不能与另一个下载写者交错删除新文件/sidecar。
 /// 音频线程不等待网络下载持有的锁，忙时留待下次失败重试。
+#[cfg(feature = "desktop-audio")]
 pub(crate) fn invalidate_audio(path: &Path) {
     let lock = download_lock(path);
     let Ok(_writer) = lock.try_lock() else {
@@ -81,6 +82,19 @@ pub fn root_dir() -> PathBuf {
                 .unwrap_or_else(std::env::temp_dir)
                 .join("sodam")
         })
+}
+
+/// 音频缓存目录。
+///
+/// 放在 `cache` 而不是 `audio`：目录布局与平台无关，Android 端不启用 rodio
+/// 也需要它（`sodam`、`sodam-ffi` 都引用这里）。
+pub fn cache_dir() -> PathBuf {
+    root_dir().join("audio")
+}
+
+/// 封面缓存目录。
+pub fn cover_cache_dir() -> PathBuf {
+    root_dir().join("covers")
 }
 
 // .quality 与音频共享保护键，避免播放/下载时只删了 sidecar。

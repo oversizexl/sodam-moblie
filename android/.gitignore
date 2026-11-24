@@ -1,0 +1,11 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+captures/
+
+# 由 scripts/android-ffi.sh 生成（先跑脚本再构建）
+app/src/main/jniLibs/*/*.so
+app/src/main/java/uniffi/

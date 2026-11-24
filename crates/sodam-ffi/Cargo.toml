@@ -1,0 +1,32 @@
+[package]
+name = "sodam-ffi"
+description = "SodaM 的 Android/UniFFI 桥：二维码登录与 Cookie 校验（只依赖 libresoda）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "sodam_ffi"
+crate-type = ["cdylib", "staticlib", "lib"]
+
+[features]
+# 只在生成 Kotlin 绑定时启用；Android 侧编译 lib 不需要，避免把 bindgen 塞进 .so。
+cli = ["uniffi/cli"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["cli"]
+
+
+[dependencies]
+# 只依赖 libresoda + sodam-core（关掉 rodio）。
+# 内容接口（搜索/取流）需要应用签名，内置签名服务地址在 sodam-core::config。
+libresoda.workspace = true
+sodam-core = { path = "../sodam-core", default-features = false }
+serde.workspace = true
+serde_json.workspace = true
+thiserror = "2"
+uniffi = "0.32"

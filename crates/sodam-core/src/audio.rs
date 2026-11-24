@@ -845,15 +845,9 @@ fn format_seconds(seconds: f64) -> String {
     format!("{:02}:{:02}", total / 60, total % 60)
 }
 
-/// 音频缓存目录。
-pub fn cache_dir() -> std::path::PathBuf {
-    crate::cache::root_dir().join("audio")
-}
-
-/// 封面缓存目录。
-pub fn cover_cache_dir() -> std::path::PathBuf {
-    crate::cache::root_dir().join("covers")
-}
+// 缓存目录归 `cache` 模块所有（Android 端不编 audio 也要用）。
+// 这里重导出，保持 `sodam_core::audio::cache_dir()` 的旧调用点不变。
+pub use crate::cache::{cache_dir, cover_cache_dir};
 
 /// 目录占用：**递归**统计（字节数，文件数）。
 ///

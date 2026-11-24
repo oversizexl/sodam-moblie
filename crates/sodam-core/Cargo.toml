@@ -22,4 +22,9 @@ futures-channel = "0.3"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
 # 0.20 的 symphonia 解码器遇到「MP4 容器 + FLAC」会在初始化 seek 时报错并 panic
 # （rodio 内部 unreachable!()）；0.22 已修好，实测可直接解码 libresoda 解密后的文件
-rodio = { version = "0.22", default-features = false, features = ["playback", "flac", "mp3", "mp4"] }
+rodio = { version = "0.22", default-features = false, features = ["playback", "flac", "mp3", "mp4"], optional = true }
+
+[features]
+default = ["desktop-audio"]
+# 桌面端的 rodio 播放引擎；Android 不启用，播放交给 Media3。
+desktop-audio = ["dep:rodio"]
