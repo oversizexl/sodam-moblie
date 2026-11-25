@@ -1,588 +1,158 @@
 <div align="center">
-  <img src="crates/sodam/assets/brand/sodam-logo.svg" width="96" alt="SodaM logo">
-  <h1>SodaM</h1>
-  <p>基于 GPUI + Rust 的原生汽水音乐桌面客户端</p>
+  <img src="android/app/src/main/res/drawable-xxxhdpi/ic_launcher_logo.png" width="96" alt="SodaM Mobile logo">
+  <h1>SodaM Mobile</h1>
+  <p>基于 Jetpack Compose + Rust（<code>sodam-ffi</code>）的原生汽水音乐 Android 客户端</p>
   <p>
-    <a href="https://github.com/sodahub-org/sodam/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL%203.0%20or%20later-blue.svg" alt="License: AGPL-3.0-or-later"></a>
-    <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.85%2B-orange.svg" alt="Rust 1.85+"></a>
-    <a href="https://github.com/sodahub-org/gpui"><img src="https://img.shields.io/badge/UI-GPUI%200.2.2-8B5CF6.svg" alt="GPUI 0.2.2"></a>
-    <a href="https://omarchy.org/"><img src="https://img.shields.io/badge/Linux%20%7C%20Omarchy-tested-success.svg" alt="Linux / Omarchy tested"></a>
-    <a href="https://github.com/sodahub-org/sodam/releases"><img src="https://img.shields.io/badge/macOS%20arm64%20%7C%20Apple%20Silicon-tested-success.svg" alt="macOS arm64 tested"></a>
-    <img src="https://img.shields.io/badge/Windows%20x64-tested-success.svg" alt="Windows x64 tested">
-  </p>
-  <p>音乐能力由 <a href="https://github.com/sodahub-org/libresoda">libresoda</a> 提供；应用签名服务可对接
-    <a href="https://github.com/sodahub-org/libmssdk">libmssdk</a>。</p>
-  <p><a href="https://sodahub-org.github.io/sodam/"><strong>官网</strong></a> ·
-    <a href="https://sodahub-org.github.io/sodam/install.html">安装说明</a> ·
-    <a href="https://sodahub-org.github.io/sodam/llm.html">让 AI 帮我装</a> ·
-    <a href="https://sodahub-org.github.io/sodam/changelog.html">更新日志</a> ·
-    <a href="https://sodahub-org.github.io/sodam/developers.html">开发者文档</a> ·
-    <a href="PRIVACY.md">隐私政策</a></p>
-  <p>友情链接：<a href="https://github.com/mytv-android/myMusic"><strong>myMusic</strong></a>
-    —— Android 手机 / 平板 / TV 端的汽水音乐客户端，由
-    <a href="https://github.com/mytv-android">mytv-android</a> 独立维护，不是 SodaM 项目的一部分。</p>
-  <p>
-    <a href="https://github.com/mytv-android/myMusic">
-      <img src="https://raw.githubusercontent.com/mytv-android/myMusic/main/docs/images/banner.png" width="240" alt="myMusic：第三方 Android 手机 / 平板 / TV 端客户端，非 SodaM 组成部分">
-    </a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%203.0%20or%20later-blue.svg" alt="License: AGPL-3.0-or-later"></a>
+    <img src="https://img.shields.io/badge/Android-8.0%2B%20(API%2026%2B)-3DDC84.svg" alt="Android 8.0+">
+    <img src="https://img.shields.io/badge/ABI-arm64--v8a-informational.svg" alt="ABI arm64-v8a">
+    <img src="https://img.shields.io/badge/UI-Jetpack%20Compose%20%2B%20Material%203-4285F4.svg" alt="Jetpack Compose + Material 3">
+    <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Core-Rust%20%2B%20UniFFI-orange.svg" alt="Rust + UniFFI"></a>
   </p>
   <p>
-    <a href="https://linux.do/t/topic/2921819">
-      <img src="docs/img/linux-do.svg" width="22" alt="LINUX DO">
-      Linux.do 开源推广帖 · 问题反馈与交流
-    </a>
+    核心音乐引擎复用自上游 <a href="https://github.com/sodahub-org/sodam">sodahub-org/sodam</a>；
+    接口与解密能力来自 <a href="https://github.com/sodahub-org/libresoda">libresoda</a>；
+    应用签名服务可对接 <a href="https://github.com/sodahub-org/libmssdk">libmssdk</a>。
+  </p>
+  <p>
+    <a href="PRIVACY.md">隐私政策</a> ·
+    <a href="CONTRIBUTING.md">参与贡献</a> ·
+    <a href="docs/ARCHITECTURE.md">架构文档</a> ·
+    <a href="https://github.com/sodahub-org/sodam">上游桌面端仓库</a>
   </p>
 </div>
 
-SodaM 是**汽水音乐的第三方桌面客户端**，面向 Linux / macOS / Windows，用 GPUI 原生渲染，
-强调**高性能、低占用、高颜值**。重点做四件事：**接近官方客户端的操作手感、稳定的本地播放体验、
-会员账号的无损音质播放，以及干净自适应的主题系统**。
+**SodaM Mobile** 是面向 Android 设备的第三方汽水音乐客户端（`minSdk 26` / `targetSdk 36`，默认 `arm64-v8a`）。应用采用 **Jetpack Compose + Material 3 + Media3** 构建原生移动端交互，并通过 **UniFFI（`sodam-ffi`）** 直接调用 Rust 领域层 [`sodam-core`](crates/sodam-core) 与 [`libresoda`](https://github.com/sodahub-org/libresoda)，兼顾流畅的移动端手势体验、无损音质取流与稳定的本地/离线播放能力。
 
-> 非官方项目：由社区开发维护，与汽水音乐官方无关；账号登录与曲库仍来自汽水音乐官方服务。
+> **非官方项目声明**：本项目由社区开发维护，与汽水音乐官方无关；账号登录、歌单与曲库服务均来自汽水音乐官方接口。
 
-<div align="center">
-  <img src="docs/img/main/1.jpg" width="880" alt="SodaM 主界面预览 1">
-</div>
-
-<div align="center">
-  <img src="docs/img/main/2.jpg" width="880" alt="SodaM 主界面预览 2">
-</div>
-
-<div align="center">
-
-### 维护者与贡献者
-
-想参与开发？先读 [CONTRIBUTING.md](CONTRIBUTING.md)（构建脚本、开发约定、提交与发布流程），
-提 issue 请用[模板](https://github.com/sodahub-org/sodam/issues/new/choose)。
-
-<a href="https://github.com/sodahub-org/sodam/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=sodahub-org/sodam" alt="SodaM contributors" loading="lazy">
-</a>
-
-</div>
-
-### 平台支持
-
-| 平台 | 状态 |
-| --- | --- |
-| Linux / Omarchy | 已实测 |
-| Linux（Debian / Ubuntu） | 提供 `.deb` 包 |
-| macOS（Apple Silicon） | 已实测，提供 Homebrew Cask 与 `.app` 下载 |
-| Windows（x64） | 已实测，提供安装包 |
+---
 
 ## 界面预览
 
-| 推荐流 | 听歌模式 |
-| --- | --- |
-| <a href="docs/img/Discover.png"><img src="docs/img/Discover.png" width="880" alt="SodaM 推荐流页面"></a> | <a href="docs/img/Modes.png"><img src="docs/img/Modes.png" width="880" alt="SodaM 听歌模式页面"></a> |
-| **搜索** | **我的歌单** |
-| <a href="docs/img/Search.png"><img src="docs/img/Search.png" width="880" alt="SodaM 搜索页面"></a> | <a href="docs/img/Playlists.png"><img src="docs/img/Playlists.png" width="880" alt="SodaM 我的歌单页面"></a> |
-| **我喜欢的音乐** | **设置** |
-| <a href="docs/img/Liked.png"><img src="docs/img/Liked.png" width="880" alt="SodaM 我喜欢的音乐页面"></a> | <a href="docs/img/Settings.png"><img src="docs/img/Settings.png" width="880" alt="SodaM 设置页面"></a> |
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="33%">
+        <img src="docs/img/android-01.jpeg" width="240" alt="SodaM Mobile 播放主页"><br>
+        <sub><b>播放主页</b> · 动态渐变与悬浮底栏</sub>
+      </td>
+      <td align="center" width="33%">
+        <img src="docs/img/android-02.jpeg" width="240" alt="SodaM Mobile 全屏歌词页"><br>
+        <sub><b>全屏歌词</b> · 横滑直达与胶囊返回</sub>
+      </td>
+      <td align="center" width="33%">
+        <img src="docs/img/android-03.jpeg" width="240" alt="SodaM Mobile 发现页"><br>
+        <sub><b>发现页</b> · 两行歌单与离线入口</sub>
+      </td>
+    </tr>
+  </table>
+</div>
 
-### macOS（Apple Silicon）
+---
 
-| 听歌模式 | 推荐流 |
-| --- | --- |
-| <a href="docs/img/macos/Modes.png"><img src="docs/img/macos/Modes.png" width="880" alt="SodaM macOS 听歌模式页面"></a> | <a href="docs/img/macos/Discover.png"><img src="docs/img/macos/Discover.png" width="880" alt="SodaM macOS 播放页与歌词"></a> |
-| **搜索** | **我的歌单** |
-| <a href="docs/img/macos/Search.png"><img src="docs/img/macos/Search.png" width="880" alt="SodaM macOS 搜索页面"></a> | <a href="docs/img/macos/Playlists.png"><img src="docs/img/macos/Playlists.png" width="880" alt="SodaM macOS 我的歌单页面"></a> |
-| **我喜欢的音乐** | **设置** |
-| <a href="docs/img/macos/Liked.png"><img src="docs/img/macos/Liked.png" width="880" alt="SodaM macOS 我喜欢的音乐页面"></a> | <a href="docs/img/macos/Settings.png"><img src="docs/img/macos/Settings.png" width="880" alt="SodaM macOS 设置页面"></a> |
+## 核心特性
 
-## 功能特性
+### 沉浸式全屏播放体验
+- **Edge-to-Edge 全屏动态背景**：内容自然延伸至状态栏与系统导航栏区域；基于当前播放歌曲封面实时提取主色生成动态渐变背景（兼容 Android 8–16），并可在设置页自由调节动态背景浓度。
+- **手势切歌与歌词联动**：
+  - 首页支持上下滑动切歌并保留封面视差动效，配备极简双点翻页指示器与封面加载呼吸淡入占位；
+  - 首页向右横滑直接进入全屏歌词页，右下角提供「封面」返回胶囊按钮；
+  - 点击首页歌名直达所属专辑页，点击歌手名直达歌手详情页，点击音质标签直达设置页。
 
-### 播放与队列
+### 可定制播控与交互细节
+- **4 种可热切换播放按钮动效（`PlayButtonStyle`）**：支持在设置或主题页实时切换「环绕进度（`ProgressRing`）」「磨砂呼吸（`FrostedPulse`）」「宽胶囊态（`CapsuleMorph`）」「纯粹高反差（`MinimalContrast`）」。
+- **流体细轨进度条（`FluidSeekBar`）**：拖拽与播放状态平滑过渡，响应跟手。
+- **切歌触感震动微调**：支持在设置页对切歌触感反馈强度进行分级调节或关闭。
 
-- 本地播放引擎：播放 / 暂停、上一首 / 下一首、拖动进度、音量控制
-- 列表循环、单曲循环、随机播放三种模式，随进度自动跟随并跨启动保留
-- 正在播放曲目在歌单列表中保持高亮
-- 播放队列分为「已播放 / 正在播放 / 接下来」
-- 队列与歌单中的歌曲支持右键菜单、下一首播放、收藏切换
-- 歌名可跳转专辑页，歌手名可跳转音乐人页
+### 双风格底部导航栏
+- **简洁模式**：悬浮胶囊样式底部导航栏，支持长按后左右滑动丝滑切换页面。
+- **Material You 模式**：固定贴合底部并与首页动态渐变背景自然融合，页面切换带有 `Crossfade` 过渡动画。
 
-### 播放页与歌词
+### 发现、搜索与离线下载管理
+- **发现与歌单浏览**：支持「我喜欢的音乐」实时曲数校准同步、两行整体横滑推荐歌单网格，以及「本地已下载」离线管理视图（自动校验物理文件存在性，及时同步外部删除状态）。
+- **单曲与批量下载**：单曲三点菜单整合「喜欢 / 取消喜欢」与「下载当前音质」，歌单与专辑支持批量下载；设置页可通过系统目录选择器（SAF）自定义下载保存路径。
+- **即时音质切换**：在设置页切换音质档位后即时重取流生效，无需重启应用。
+- **搜索与后台播放**：支持持久化搜索历史胶囊（单条删除与一键清空），并依托 Media3 `ExoPlayer` 与 `MediaSession` 提供后台播放、通知栏及锁屏控制。
 
-- 官方式播放页布局：封面宽度 `min(40vh, 30vw)`，歌词列 `300–500px`
-- 按当前歌曲封面提取主色，全局背景、表面色、强调色动态渐变
-- 歌词随播放进度滚动，当前句居中高亮
-- 播放页可在歌词视图与队列视图之间切换
-- 封面与歌词加载失败时提供重试，并校验资源与当前歌曲是否匹配
+---
 
-### 推荐、听歌模式与音乐库
-
-- 首页推荐队列，启动后自动准备第一首歌曲
-- 45+ 听歌模式入口，图标本地内置，浅色 / 深色主题自动适配
-- 探索歌单虚拟网格与分页加载
-- 我喜欢的音乐、我的歌单、歌单详情、歌手页、专辑页
-- 收藏状态在播放页、播放栏、队列和列表间保持同步
-
-### 搜索
-
-- 综合搜索与歌曲、音乐人、专辑、歌单垂直搜索
-- 搜索结果支持多类型分组与详情页跳转
-- 艺人页包含头像、热门歌曲、专辑与加载更多
-- 专辑页展示封面、发行信息与全碟歌曲
-- 输入框支持中文输入法与光标 / 选区操作
-
-### 桌面体验
-
-- Dark / Light 双主题，首次启动跟随系统偏好
-- 中文 / English 界面语言，首次启动跟随系统语言
-- 系统托盘：播放控制、显示主窗口、真正退出（Linux 为 SNI 托盘，macOS 为菜单栏 NSStatusItem，Windows 为通知区域图标）
-- 关闭主窗口不退出进程，保留后台播放
-- Linux 提供原生窗口与桌面入口；macOS 提供自绘标题栏的 `.app`；Windows 提供自绘标题栏（拖拽、双击最大化、Win11 贴靠布局）的安装包
-
-### 性能与稳定性
-
-- 网络请求、下载、解密、封面处理均放到后台线程，不阻塞渲染
-- 长列表使用虚拟滚动，只渲染可见行
-- 封面请求池有并发上限、去重和队列上限
-- 播放请求带序号防竞态，过期结果不会覆盖当前歌曲
-- 帧耗时与滚动压测开关可用于定位 UI 卡顿
-
-## 架构与依赖
+## 架构与目录
 
 ```text
-SodaM
-└── sodam-core        配置、会话、队列、播放引擎、音乐库封装；不依赖 GPUI
-    └── libresoda     汽水接口、取流、解密、扫码登录、签名提供者
-        └── libmssdk  可选应用签名服务，完整音质链路使用
+SodaM Mobile
+├── android/                  Jetpack Compose + Material 3 + Media3 原生应用
+│   └── app/src/main/         界面、播放器控制、下载器与 UniFFI Kotlin 绑定
+├── crates/sodam-ffi/         UniFFI 桥接层，编译产物为 libsodam_ffi.so 与 Kotlin 绑定
+└── crates/sodam-core/        配置、会话、队列、音乐库与音频流封装（纯 Rust）
+    └── libresoda             汽水接口、取流、解密与扫码登录
+        └── libmssdk          外部可选应用签名服务，用于完整音质链路
 ```
 
-分层细节见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)，
-UI 规范见 [`docs/UI-SPEC.md`](docs/UI-SPEC.md)。
+| 路径 | 说明 |
+| --- | --- |
+| [`android/`](android/) | Android Gradle 工程（`org.sodahub.sodam`，Java 17，Jetpack Compose） |
+| [`crates/sodam-ffi/`](crates/sodam-ffi/) | 面向 Android 的 Rust FFI 导出层与 `uniffi-bindgen` 生成入口 |
+| [`crates/sodam-core/`](crates/sodam-core/) | 与上游共享的核心业务逻辑层 |
+| [`scripts/android-ffi.sh`](scripts/android-ffi.sh) | 交叉编译 `libsodam_ffi.so` 并同步 Kotlin 绑定的自动化脚本 |
 
-## 快速开始
+---
+
+## 构建与安装
 
 ### 环境要求
+- **Android 打包**：JDK 17、Android SDK（Platform 36）、Android Gradle 插件环境（工程内含 `./gradlew`）。
+- **Rust FFI 重编（仅改动 Rust 层或首次拉取未包含 `.so` 时需要）**：
+  - Rust `stable`（`1.85+`）及对应 Android target（如 `aarch64-linux-android`）
+  - [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk) 与完整版 Android NDK（脚本会自动检索 `$ANDROID_HOME/ndk/*` 或 `$ANDROID_NDK_HOME`）
 
-- Rust stable，最低 `1.85`
-- Linux：Wayland 或 X11 运行时
-- macOS：Apple Silicon（M 系列），macOS 12+；构建需完整版 Xcode（Metal shader 编译，
-  仅装 Command Line Tools 会报 `xcrun: unable to find utility "metal"`）
-- Windows：Windows 10+ x64；源码构建需 VS 2022 Build Tools（C++ 工作负载）
-- 系统默认浏览器用于扫码登录的二次验证页（无需安装 Chromium/Chrome）
-- `libresoda` 与 `sodam` 同级 clone（可选）：本地联调时可用
-  `[patch."https://github.com/sodahub-org/libresoda"]` 指向 `../libresoda`，
-  改动 libresoda 即时生效，无需等新版本。
+### 1. 编译 Rust FFI 与 Kotlin 绑定（可选）
 
-```text
-Projects/sodahub-org/
-├── libresoda/
-├── libmssdk/
-└── sodam/
-```
-
-### 启动
+如果尚未生成 `libsodam_ffi.so` 或修改了 `crates/` 下的 Rust 代码，先执行脚本将产物铺入 `android/app/src/main/jniLibs/` 与 `android/app/src/main/java/uniffi/sodam_ffi/`：
 
 ```bash
-cd sodam
-scripts/run.sh
+# 真机默认架构（arm64-v8a，release 模式）
+./scripts/android-ffi.sh arm64-v8a release
+
+# 如需在 x86_64 模拟器运行，额外编译 x86_64 并在 android/app/build.gradle.kts 的 abiFilters 中加入 "x86_64"
+./scripts/android-ffi.sh x86_64 debug
 ```
 
-首次启动进入设置页，扫码登录后配置会写入本地。已登录用户会直接进入播放页，
-并自动准备推荐队列。
-
-## 配置
-
-配置文件（随平台不同）：
-
-| 平台 | 路径 |
-| --- | --- |
-| Linux | `~/.config/sodam/config.json` |
-| macOS | `~/Library/Application Support/sodam/config.json` |
-| Windows | `%APPDATA%\sodam\config.json` |
-
-环境变量只在配置字段为空时补全。常用配置：
-
-| 变量 | 说明 |
-| --- | --- |
-| `SODA_COOKIE` | 登录 Cookie，扫码成功后自动写入配置 |
-| `QISHUI_SIGNER_URL` | 签名服务 `/sign` 地址 |
-| `QISHUI_SIGNER_TOKEN` | 签名服务 Bearer Token |
-| `SODA_DEVICE_ID` / `SODA_IID` / `SODA_FP` | 设备身份；覆盖时必须与签名器一致 |
-| `SODAM_QUALITY` | 音质意图：`auto` / `best` / `hires` / `lossless` / `dolby` / `highest` / `medium` / `low` |
-| `SODAM_PLAYER_LOG` / `SODAM_PREFETCH_LOG` / `SODAM_REPORT_LOG` | 把对应日志话题（`player` / `prefetch` / `report`）提到 `DEBUG` |
-| `SODAM_SCENE_LOG` / `SODAM_THEME_LOG` / `SODAM_COVER_LOG` / `SODAM_FRAME_LOG` | 同上，这四个都归 `app` 话题 |
-
-音质偏好只表达**意图**：「自动」= 不设上限，由服务端按账号权益与单曲可用档位收敛，
-实际拿到哪一档由播放条徽章如实显示。选具体档位时从**下一首**开始生效，当前曲目不重载。
-
-日志默认按 `INFO` 记录在本机。设置页「诊断 → 详细日志」可把六个话题全部提到 `DEBUG`，
-即时生效、重启保持；环境变量与这个开关是并集——两边都只能记更多，不存在谁覆盖谁。
-
-SodaM 默认内置一个公共签名服务，未部署 `libmssdk` 的用户也可以直接使用。
-可以在设置页或环境变量中替换为自己的签名服务。
-
-不要提交真实 Cookie、Token、签名头或设备指纹。
-
-### 音量与磁盘缓存
-
-- 音量、静音状态及静音前的音量会自动保存，重启后恢复；拖动音量条的写盘会防抖。
-- 音频缓存默认上限 **10 GiB**。在「设置 → 缓存」中可选择常用大小，或以 1 GiB
-  为步长调整（1–1024 GiB）。配置字段 `audio_cache_limit_mb` 的单位为 MiB。
-- 启动、修改上限及运行期间会在后台按最近使用时间淘汰旧音频；封面不占用音频额度。
-  正在下载、等待装载或正在播放的文件受保护，可能暂时超过上限，释放后再清理。
-- 「清空缓存」在后台递归清理音频、封面及封面原图；正在使用的音频和近期下载临时文件
-  会保留。中断下载遗留的临时文件超过 24 小时后可被清理。
-- 音频缓存按**音质意图**命名：选「自动」时同一首歌始终命中同一个文件，所以开通会员后
-  旧歌仍播缓存里那一档，想按新权益重取需清空缓存或换一首。选具体档位时，切档后新曲目
-  按新档位另存一份。
-
-以下是显式覆盖项，不受上面“只补全空字段”的规则限制：
-
-| 变量 | 说明 |
-| --- | --- |
-| `SODAM_VOLUME` | 启动音量覆盖，范围 0–1；开发测试可设为 `0` |
-| `SODAM_CONFIG_PATH` | 使用独立配置文件，便于隔离测试实例 |
-| `SODAM_CACHE_DIR` | 缓存根目录，其下使用 `audio/`、`covers/`；可放到其他磁盘 |
-
-## 开发
-
-本仓库为了避免 ARM64 开发机编译峰值导致 OOM，所有常规操作都使用带资源护栏的脚本：
+### 2. 构建 APK
 
 ```bash
-scripts/check.sh   # cargo check + fmt + clippy + test
-scripts/build.sh   # debug / release 构建
-scripts/run.sh     # 启动 GUI，带 MemoryMax 护栏
+cd android
+
+# 构建 Debug APK
+./gradlew assembleDebug
+# 输出路径: android/app/build/outputs/apk/debug/app-debug.apk
+
+# 构建 Release APK
+./gradlew assembleRelease
 ```
 
-不要在 GUI 运行时编译；不要绕过脚本反复执行全量 cargo 构建。
+> **签名说明**：`assembleRelease` 默认读取环境变量 `SODAM_KEYSTORE_PATH`、`SODAM_KEYSTORE_PASSWORD`、`SODAM_KEY_ALIAS`、`SODAM_KEY_PASSWORD`；未配置时会自动回退到 debug 签名，确保本地可直接安装调试。
 
-## Debian / Ubuntu 下载安装
+---
 
-从 `v0.3.9` 起，SodaM 的 GitHub Release 同时提供 Debian / Ubuntu 的 `.deb` 包。
-`v0.3.8` 及更早的 Release **没有** `.deb`；下面用 GitHub API 取最新 Release 的版本号。
+## 配置与使用说明
 
-### 1. 确认系统架构
+- **账号与签名**：首次打开可在登录页通过扫码或粘贴 Cookie 登录；Android 端当前直接使用内置默认 [`libmssdk`](https://github.com/sodahub-org/libmssdk) 签名服务（暂未在设置页开放自定义签名地址入口）。
+- **音质偏好**：支持自动（`auto`）、Hi-Res 无损（`hires`）、无损（`lossless`）、杜比全景声（`dolby`）、极高（`highest`）、较高（`medium`）、流畅（`low`）。其中「自动」不设上限，由服务端按账号权益与单曲可用档位收敛。
+- **外观与下载**：动态渐变背景透明度、播放按钮动效样式、底部导航栏风格（简洁 / Material You）、切歌震动强度及自定义下载目录均可在应用内设置与主题页调整并持久化保存。
+- **隐私安全**：请勿在公共仓库或日志中提交个人 Cookie、签名 Token、抓包签名头或真实设备指纹。
 
-```bash
-dpkg --print-architecture   # amd64 或 arm64
-```
+---
 
-- `x86_64` 机器对应 `amd64`
-- `aarch64` 机器对应 `arm64`
+## 上游与相关文档
 
-### 2. 下载并校验安装包
-
-```bash
-mkdir -p /tmp/sodam-install
-cd /tmp/sodam-install
-
-arch=$(dpkg --print-architecture)
-# 最新 Release 的版本号（v0.3.9 起提供 deb；更早的没有）
-version=$(curl -fsSL https://api.github.com/repos/sodahub-org/sodam/releases/latest \
-  | grep -o '"tag_name": *"v[^"]*"' | head -1 | sed 's/.*"v//; s/"$//')
-base_url=https://github.com/sodahub-org/sodam/releases/download/v${version}
-
-curl -fLO ${base_url}/SHA256SUMS
-curl -fLO ${base_url}/sodam_${version}_${arch}.deb
-grep "sodam_${version}_${arch}\.deb$" SHA256SUMS | sha256sum -c -
-```
-
-校验输出必须包含 `OK`：
-
-```text
-sodam_${version}_amd64.deb: OK
-```
-
-### 3. 安装
-
-```bash
-sudo apt install ./sodam_${version}_${arch}.deb
-```
-
-`apt` 会自动处理 `libasound2`、`libdbus-1-3`、`libfontconfig1`、`libfreetype6`、
-`libxkbcommon0`、`libxcb1`、`hicolor-icon-theme` 等依赖。包未做 GPG 签名、也没有
-apt 源，所以用 `apt install ./包路径` 直接装本地文件，不要先 `apt update` 再按包名安装。
-
-> Debian 12/13 与 Ubuntu 24.04+ 的 `t64` 包都带传统包名的 `Provides:`，上面这些依赖名都能满足。
-
-### 4. 启动
-
-命令行启动：
-
-```bash
-sodam
-```
-
-也可以从桌面环境的应用菜单中启动 **SodaM**。首次启动会进入设置页，按提示扫码登录后即可使用。
-
-### 升级与卸载
-
-```bash
-# 升级：从 Releases 下载新版本 .deb 后覆盖安装
-sudo apt install ./sodam_<新版本>_${arch}.deb
-
-# 卸载；~/.config/sodam 里的配置和登录状态会保留
-sudo apt remove sodam
-```
-
-## Arch Linux 下载安装
-
-SodaM 的 GitHub Release 提供 Arch Linux `pacman` 安装包，当前版本为 [`v0.3.9`](https://github.com/sodahub-org/sodam/releases/tag/v0.3.9)。
-
-### 1. 确认系统架构
-
-```bash
-uname -m
-```
-
-- `x86_64`：选择 `x86_64` 包
-- `aarch64`：选择 `aarch64` 包，例如 ARM64 笔记本或 ARM 服务器
-
-### 2. 下载并校验安装包
-
-```bash
-mkdir -p /tmp/sodam-install
-cd /tmp/sodam-install
-
-arch=$(uname -m)
-version=0.3.9
-base_url=https://github.com/sodahub-org/sodam/releases/download/v${version}
-
-curl -fLO ${base_url}/SHA256SUMS
-curl -fLO ${base_url}/sodam-${version}-1-${arch}.pkg.tar.zst
-grep "sodam-${version}-1-${arch}\.pkg\.tar\.zst$" SHA256SUMS | sha256sum -c -
-```
-
-校验输出必须包含 `OK`：
-
-```text
-sodam-0.3.9-1-x86_64.pkg.tar.zst: OK
-```
-
-### 3. 安装
-
-```bash
-sudo pacman -U ./sodam-${version}-1-${arch}.pkg.tar.zst
-```
-
-`pacman` 会自动处理 `alsa-lib`、`dbus`、`fontconfig`、`freetype2`、`libxkbcommon` 等依赖。
-
-### 4. 启动
-
-命令行启动：
-
-```bash
-sodam
-```
-
-也可以从桌面环境的应用菜单中启动 **SodaM**。首次启动会进入设置页，按提示扫码登录后即可使用。
-
-后续升级时，从 [Releases](https://github.com/sodahub-org/sodam/releases/latest) 下载新版本的对应架构包，并再次执行 `sudo pacman -U` 即可。
-
-### 方式二：自建 pacman 源（推荐，可直接升级）
-
-每个版本会把官方构建的包打成 pacman 仓库并发布到 GitHub Pages，
-加上一行配置就能用 `pacman` 安装、随 `pacman -Syu` 升级：
-
-```ini
-# /etc/pacman.conf 末尾
-[sodam]
-SigLevel = Optional TrustAll
-Server = https://sodahub-org.github.io/sodam/$arch
-```
-
-```bash
-sudo pacman -Sy sodam          # 首次安装
-sudo pacman -Syu               # 之后随系统一起升级
-```
-
-仓库地址：<https://sodahub-org.github.io/sodam/>（含 `x86_64` 与 `aarch64`）。
-
-说明：包由 GitHub Actions 从源码构建，内容与 Release 里的 `.pkg.tar.zst` 一致，**未做 GPG 签名**，
-所以配置的是 `Optional TrustAll`；如需更严格校验请用上面的 `pacman -U` + `SHA256SUMS` 方式。
-
-## macOS 下载安装（Apple Silicon）
-
-macOS 版已在 Apple Silicon（M 系列）真机实测。当前版本为
-[`v0.3.9`](https://github.com/sodahub-org/sodam/releases/tag/v0.3.9)，两种安装方式任选。
-
-### 方式一：Homebrew（推荐，预编译 `.app`）
-
-```bash
-brew install --cask sodahub-org/tap/sodam
-```
-
-升级：
-
-```bash
-brew update
-brew upgrade --cask sodam
-```
-
-Cask 来自官方 tap [sodahub-org/homebrew-tap](https://github.com/sodahub-org/homebrew-tap)，
-安装的就是 GitHub Release 里的 Apple Silicon（arm64）预编译包；Intel 机型会被
-Homebrew 按架构要求拦下。安装后如仍被 Gatekeeper 拦截，用下面手动安装第 3 步的
-`xattr` 命令放行即可。
-
-### 方式二：手动下载安装包
-
-#### 1. 下载并校验
-
-```bash
-mkdir -p /tmp/sodam-install
-cd /tmp/sodam-install
-
-version=0.3.9
-base_url=https://github.com/sodahub-org/sodam/releases/download/v${version}
-
-curl -fLO ${base_url}/SHA256SUMS
-curl -fLO ${base_url}/sodam-${version}-macos-aarch64.zip
-grep "sodam-${version}-macos-aarch64\.zip$" SHA256SUMS | shasum -a 256 -c -
-```
-
-校验输出必须包含 `OK`：
-
-```text
-sodam-0.3.9-macos-aarch64.zip: OK
-```
-
-#### 2. 安装
-
-```bash
-unzip sodam-${version}-macos-aarch64.zip
-mv SodaM.app /Applications/
-```
-
-也可以在 Finder 里双击解压后，把 **SodaM.app** 拖进「应用程序」文件夹。
-
-#### 3. 首次启动（绕过 Gatekeeper）
-
-当前发行包为 ad-hoc 签名、未经 Apple 公证，首次打开会被 Gatekeeper 拦截，
-任选一种方式放行：
-
-```bash
-# 去掉隔离属性（推荐）
-xattr -cr /Applications/SodaM.app
-open -a SodaM
-```
-
-或：双击 SodaM.app → 在弹窗中点「取消」→ 打开「系统设置 → 隐私与安全性」→
-点「仍要打开」。
-
-#### 4. 启动
-
-从启动台或 Finder 打开 **SodaM**，首次启动会进入设置页，按提示扫码登录后即可使用。
-后续升级时，从 [Releases](https://github.com/sodahub-org/sodam/releases/latest) 下载新版本，
-重复步骤 2 覆盖到 `/Applications` 即可（配置在
-`~/Library/Application Support/sodam/`，不会丢失）。
-
-## Windows 下载安装（x64）
-
-Windows 版已在 Windows 10/11 x64 真机实测，GitHub Release 提供 Inno Setup 安装包
-（按用户安装，无需管理员权限），当前版本为
-[`v0.3.9`](https://github.com/sodahub-org/sodam/releases/tag/v0.3.9)。
-
-### 方式一：winget（推荐）
-
-Windows 10/11 自带的 winget 会从官方包仓库安装同一个 Inno Setup 安装包：
-
-```powershell
-winget install --id sodahub-org.SodaM -e
-winget upgrade --id sodahub-org.SodaM -e
-```
-
-- 包名是 `sodahub-org.SodaM`，收录在官方的
-  [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs)（社区提交、微软审核合并）。
-- `winget show --id sodahub-org.SodaM -e` 可以核对版本、安装器类型与发行信息。
-- 新版本通常由官方 `wingetbot` 自动跟进；如果它还没跟上最新 Release，用下面的方式二直接装最新版。
-
-### 方式二：下载安装包
-
-#### 1. 下载并校验
-
-```powershell
-mkdir C:\sodam-install; cd C:\sodam-install
-
-$version = "0.3.9"
-$base = "https://github.com/sodahub-org/sodam/releases/download/v$version"
-
-Invoke-WebRequest "$base/SHA256SUMS" -OutFile SHA256SUMS
-Invoke-WebRequest "$base/sodam-$version-windows-x64-setup.exe" -OutFile "sodam-$version-windows-x64-setup.exe"
-
-$expected = (Select-String -Path SHA256SUMS -Pattern "sodam-$version-windows-x64-setup\.exe$").Line.Split(' ')[0]
-$actual = (Get-FileHash "sodam-$version-windows-x64-setup.exe" -Algorithm SHA256).Hash.ToLower()
-if ($expected -ne $actual) { throw "SHA256 mismatch!" } else { "SHA256 OK" }
-```
-
-输出 `SHA256 OK` 即校验通过。
-
-#### 2. 安装
-
-双击运行安装包，按向导完成安装：
-
-- 默认安装目录 `%LOCALAPPDATA%\Programs\SodaM`
-- 自动创建开始菜单快捷方式，可选创建桌面快捷方式
-
-#### 3. 首次启动（SmartScreen 提示）
-
-当前发行包未经代码签名，首次运行可能弹出
-**「Windows 已保护你的电脑」**：点击「更多信息」→「仍要运行」即可。
-
-首次启动会进入设置页，按提示扫码登录后即可使用。配置保存在
-`%APPDATA%\sodam\config.json`，升级安装不会影响配置。
-
-### 卸载
-
-在「设置 → 应用」或「控制面板 → 程序和功能」中卸载 SodaM；用 winget 装的也可以：
-
-```powershell
-winget uninstall --id sodahub-org.SodaM -e
-```
-
-## 打包
-
-### Arch Linux（pacman）
-
-```bash
-cd packaging/arch
-PKGEXT='.pkg.tar.zst' makepkg -f
-sudo pacman -U ./sodam-<version>-<arch>.pkg.tar.zst
-```
-
-### Debian / Ubuntu（deb）
-
-从已构建的 release 二进制直接打包，不重新编译：
-
-```bash
-cargo build --release --locked --workspace
-packaging/deb/make-deb.sh <x86_64|aarch64>
-sudo apt install ./sodam_<version>_<amd64|arm64>.deb
-```
-
-细节见 [`packaging/deb/README.md`](packaging/deb/README.md)。两种包装完都会得到：
-
-```text
-/usr/bin/sodam
-/usr/share/applications/sodam.desktop
-/usr/share/icons/hicolor/256x256/apps/sodam.png
-```
-
-`.deb` 另外带 `/usr/share/doc/sodam/{copyright,LICENSE,NOTICE.md}`，pacman 包对应的是
-`/usr/share/licenses/sodam/LICENSE`。
-
-## 文档
-
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)：分层、线程、播放与导航架构
-- [`docs/UI-SPEC.md`](docs/UI-SPEC.md)：主题、布局、尺寸与性能约束
-- [`docs/ROADMAP.md`](docs/ROADMAP.md)：已完成能力与后续优先级
-
-## 友情链接
-
-以下项目由第三方独立维护，**不是 SodaM 项目的一部分**，SodaM 不为它们的发布、质量与行为负责；
-下面的描述只是帮助你对上号。
-
-- [**myMusic**](https://github.com/mytv-android/myMusic)：Android 端（手机 / 平板 / 折叠屏 / Android TV）的
-  同类开源客户端，由 [mytv-android](https://github.com/mytv-android) 维护；Jetpack Compose + Material 3，
-  平台能力来自 [music-lib](https://github.com/guohuiyuan/music-lib)；按它的说明，汽水音乐会员整曲的
-  签名服务由 SodaM 提供。
+- 上游桌面端仓库：[sodahub-org/sodam](https://github.com/sodahub-org/sodam)（Linux / macOS / Windows 桌面客户端源码与发行版安装方式请前往上游查看）
+- 分层与线程架构：[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- 隐私说明：[`PRIVACY.md`](PRIVACY.md)
+- 贡献指南：[`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ## 许可与合规
 
-代码使用 AGPL-3.0-or-later。
+本项目基于 [`AGPL-3.0-or-later`](LICENSE) 协议开源。
 
-SodaM 是独立项目，与字节跳动、抖音或汽水音乐无关。它只面向个人播放自己有权访问的
-内容；不得用于公共代理、批量抓取、绕过付费限制或分发凭据。
+SodaM 是独立开源项目，与字节跳动、抖音或汽水音乐官方无关。本工具仅面向个人播放自己有权访问的音频内容；不得用于公共代理、批量抓取、绕过付费限制或分发账号凭据。
