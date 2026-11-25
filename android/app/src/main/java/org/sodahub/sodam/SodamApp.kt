@@ -93,6 +93,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.sodahub.sodam.ui.AboutScreen
 import org.sodahub.sodam.ui.CachedAudio
 import org.sodahub.sodam.ui.DiscoverScreen
 import org.sodahub.sodam.ui.DiscoverState
@@ -111,6 +112,7 @@ import org.sodahub.sodam.ui.UI_STYLE_CLEAN
 import org.sodahub.sodam.ui.SavedScene
 import org.sodahub.sodam.ui.HapticLevel
 import org.sodahub.sodam.ui.PlayButtonStyle
+import org.sodahub.sodam.ui.UpdateProxy
 import org.sodahub.sodam.ui.clearCookie
 import org.sodahub.sodam.ui.clearSavedScene
 import org.sodahub.sodam.ui.nextMode
@@ -131,6 +133,7 @@ import org.sodahub.sodam.ui.readTheme
 import org.sodahub.sodam.ui.readThemeColor
 import org.sodahub.sodam.ui.readThemeStyle
 import org.sodahub.sodam.ui.readUiStyle
+import org.sodahub.sodam.ui.readUpdateProxy
 import org.sodahub.sodam.ui.readable
 import org.sodahub.sodam.ui.themeColorLabel
 import org.sodahub.sodam.ui.themeLabel
@@ -148,6 +151,7 @@ import org.sodahub.sodam.ui.writeTheme
 import org.sodahub.sodam.ui.writeThemeColor
 import org.sodahub.sodam.ui.writeThemeStyle
 import org.sodahub.sodam.ui.writeUiStyle
+import org.sodahub.sodam.ui.writeUpdateProxy
 import uniffi.sodam_ffi.AccountInfo
 import uniffi.sodam_ffi.SodaClient
 import uniffi.sodam_ffi.SodaException
@@ -164,6 +168,7 @@ private sealed interface RootPage {
     data object Main : RootPage
     data object Login : RootPage
     data object Theme : RootPage
+    data object About : RootPage
     data object Search : RootPage
     data class TrackAlbumLookup(val track: Track) : RootPage
     data class TrackArtistLookup(val track: Track) : RootPage
@@ -196,6 +201,7 @@ fun SodamApp(
     hapticFile: String,
     backdropAlphaFile: String,
     playButtonStyleFile: String,
+    updateProxyFile: String,
 ) {
     var themeMode by remember { mutableStateOf(readTheme(themeFile)) }
     var themeColor by remember { mutableStateOf(readThemeColor(themeColorFile)) }
@@ -204,6 +210,7 @@ fun SodamApp(
     var hapticLevel by remember { mutableStateOf(readHapticLevel(hapticFile)) }
     var backdropAlpha by remember { mutableFloatStateOf(readBackdropAlpha(backdropAlphaFile)) }
     var playButtonStyle by remember { mutableStateOf(readPlayButtonStyle(playButtonStyleFile)) }
+    var updateProxy by remember { mutableStateOf(readUpdateProxy(updateProxyFile)) }
 
     SodamTheme(themeMode, themeColor, paletteStyle, uiStyle) {
         var client by remember { mutableStateOf<SodaClient?>(null) }
@@ -253,6 +260,12 @@ fun SodamApp(
         var sleepRemainingMs by remember { mutableLongStateOf(0L) }
 
         val context = LocalContext.current
+        @Suppress("DEPRECATION")
+        val appVersion = remember(context) {
+            runCatching {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            }.getOrNull().orEmpty().ifBlank { "0.1.0" }
+        }
 
         /**
          * 冷启动优先出声：从上次落盘的首页队列快照里挑 1–2 首已缓存的曲目立即起播。
@@ -302,7 +315,15 @@ fun SodamApp(
         LaunchedEffect(initAttempt) {
             initError = ""
             try {
-                val created = withContext(Dispatchers.IO) { SodaClient(deviceFile, cacheDir) }
+                // 如果后台服务仍在同一进程内持有活跃队列与播放下标（例如系统配置变动导致 Activity 重建），
+                // 直接沿用原有客户端与队列，绝不重置队列或打断正在播放的歌曲。
+                val existingClient = PlaybackHub.client
+                val hasActiveHub = existingClient != null &&
+                    PlaybackHub.queue.isNotEmpty() &&
+                    PlaybackHub.index in PlaybackHub.queue.indices
+                val created = existingClient ?: withContext(Dispatchers.IO) {
+                    SodaClient(deviceFile, cacheDir)
+                }
                 withContext(Dispatchers.IO) {
                     created.setQualityPreference(readQuality(qualityFile))
                     created.setCacheLimit(readCacheLimit(cacheLimitFile))
@@ -310,10 +331,17 @@ fun SodamApp(
                 // 「喜欢」写服务端：拿到 client 后挂上；登录校验后再异步拉一次已喜欢曲目。
                 LikedTracks.attach(created)
                 TrackDownloader.init(context, created, downloadDirFile)
-                // 先本地起播：只读磁盘，不挡网络与登录校验，用户几乎立刻有声音。
-                val booted = playCachedFirst(created)
-                // 没有可秒开的缓存时先占住加载态，避免闪一帧空状态。
-                if (!booted) homeRefreshing = true
+                if (hasActiveHub) {
+                    bootstrapActive = false
+                    autoPlayPending = false
+                    homeReady = true
+                    homeRefreshing = false
+                } else {
+                    // 先本地起播：只读磁盘，不挡网络与登录校验，用户几乎立刻有声音。
+                    val booted = playCachedFirst(created)
+                    // 没有可秒开的缓存时先占住加载态，避免闪一帧空状态。
+                    if (!booted) homeRefreshing = true
+                }
                 client = created
                 // 登录态校验放后台：只回填账号信息，不再阻塞首屏与起播。
                 val saved = readCookie(cookieFile)
@@ -646,9 +674,10 @@ fun SodamApp(
 
         // 启动自动加载：上次选过听歌场景就继续该场景，否则拉首页推荐。
         // 等登录校验（sessionReady）完成、且确有登录态再发身份相关请求；此时缓存曲目已经在播。
+        // 若当前已有完整队列（如后台正在播歌接管），则不再重新加载覆盖队列。
         LaunchedEffect(client, sessionReady, hasSession) {
             val active = client ?: return@LaunchedEffect
-            if (!sessionReady || !hasSession) return@LaunchedEffect
+            if (!sessionReady || !hasSession || homeReady) return@LaunchedEffect
             val restored = savedScene
             if (restored != null) {
                 startScene(
@@ -657,7 +686,7 @@ fun SodamApp(
                     restored.text,
                     keepBootstrap = true,
                 )
-            } else if (!homeReady) {
+            } else {
                 refreshHome(active, background = true)
             }
         }
@@ -778,6 +807,19 @@ fun SodamApp(
                     onUiStyleChange = {
                         uiStyle = it
                         writeUiStyle(uiStyleFile, it)
+                    },
+                    onBack = { page = RootPage.Main },
+                )
+                return@SodamTheme
+            }
+
+            RootPage.About -> {
+                AboutScreen(
+                    appVersion = appVersion,
+                    updateProxy = updateProxy,
+                    onUpdateProxyChange = { next ->
+                        updateProxy = next
+                        writeUpdateProxy(updateProxyFile, next)
                     },
                     onBack = { page = RootPage.Main },
                 )
@@ -936,6 +978,7 @@ fun SodamApp(
                         backdropAlpha = backdropAlpha,
                         hapticLevel = hapticLevel,
                         playButtonStyle = playButtonStyle,
+                        appVersion = appVersion,
                         bottomInset = subPageBottomInset,
                         onBackdropAlphaChange = { a ->
                             backdropAlpha = a
@@ -961,6 +1004,7 @@ fun SodamApp(
                         },
                         onOpenLogin = { page = RootPage.Login },
                         onOpenTheme = { page = RootPage.Theme },
+                        onOpenAbout = { page = RootPage.About },
                         onGuideDebugChange = { enabled ->
                             guideDebug = enabled
                             writeGuideDebug(guideDebugFile, enabled)

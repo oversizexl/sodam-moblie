@@ -629,3 +629,35 @@ internal fun writePlayButtonStyle(path: String, style: PlayButtonStyle) {
         }
     }
 }
+
+// ---- 应用更新代理配置 ----
+
+enum class UpdateProxy(
+    val id: String,
+    val label: String,
+    private val prefix: String?,
+) {
+    Off("off", "关闭", null),
+    HkGhProxy("hk.gh-proxy.org", "hk.gh-proxy.org", "https://hk.gh-proxy.org/"),
+    GhProxyCom("gh-proxy.com", "gh-proxy.com", "https://gh-proxy.com/"),
+    GhFast("ghfast.top", "ghfast.top", "https://ghfast.top/"),
+    GhProxyXyz("ghproxy.053000.xyz", "ghproxy.053000.xyz", "https://ghproxy.053000.xyz/"),
+    ;
+
+    fun wrapUrl(targetUrl: String): String =
+        if (prefix != null) "$prefix$targetUrl" else targetUrl
+}
+
+internal fun readUpdateProxy(path: String): UpdateProxy {
+    val raw = runCatching { File(path).takeIf { it.isFile }?.readText()?.trim() }.getOrNull()
+    return UpdateProxy.entries.firstOrNull { it.id == raw } ?: UpdateProxy.Off
+}
+
+internal fun writeUpdateProxy(path: String, proxy: UpdateProxy) {
+    runCatching {
+        File(path).apply {
+            parentFile?.mkdirs()
+            writeText(proxy.id)
+        }
+    }
+}

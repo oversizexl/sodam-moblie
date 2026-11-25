@@ -2,6 +2,7 @@ package org.sodahub.sodam
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -12,6 +13,15 @@ import androidx.activity.enableEdgeToEdge
 import java.io.File
 
 class MainActivity : ComponentActivity() {
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // 跟随系统深浅色切换时不重建 Activity，同步刷新系统栏 Edge-to-Edge 样式。
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+        )
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
@@ -48,6 +58,7 @@ class MainActivity : ComponentActivity() {
         val hapticFile = File(filesDir, "haptic_level.txt").absolutePath
         val backdropAlphaFile = File(filesDir, "backdrop_alpha.txt").absolutePath
         val playButtonStyleFile = File(filesDir, "play_button_style.txt").absolutePath
+        val updateProxyFile = File(filesDir, "update_proxy.txt").absolutePath
         setContent {
             SodamApp(
                 deviceFile = deviceFile,
@@ -70,6 +81,7 @@ class MainActivity : ComponentActivity() {
                 hapticFile = hapticFile,
                 backdropAlphaFile = backdropAlphaFile,
                 playButtonStyleFile = playButtonStyleFile,
+                updateProxyFile = updateProxyFile,
             )
         }
     }

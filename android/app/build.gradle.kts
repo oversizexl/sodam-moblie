@@ -10,12 +10,15 @@ android {
     namespace = "org.sodahub.sodam"
     compileSdk = 36
 
+    val envVersionName = System.getenv("SODAM_VERSION_NAME")?.trim()?.takeIf { it.isNotEmpty() }
+    val envVersionCode = System.getenv("SODAM_VERSION_CODE")?.trim()?.toIntOrNull()?.takeIf { it > 0 }
+
     defaultConfig {
         applicationId = "org.sodahub.sodam"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = envVersionCode ?: 1
+        versionName = envVersionName ?: "0.1.0"
 
         ndk {
             // 手机先只出 arm64-v8a。模拟器需再跑 scripts/android-ffi.sh x86_64，

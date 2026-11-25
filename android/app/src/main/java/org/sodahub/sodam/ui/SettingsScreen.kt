@@ -79,6 +79,7 @@ fun SettingsScreen(
     backdropAlpha: Float = DEFAULT_BACKDROP_ALPHA,
     hapticLevel: HapticLevel = HapticLevel.Light,
     playButtonStyle: PlayButtonStyle = PlayButtonStyle.ProgressRing,
+    appVersion: String = "0.1.0",
     bottomInset: Dp = 96.dp,
     onBackdropAlphaChange: (Float) -> Unit = {},
     onHapticLevelChange: (HapticLevel) -> Unit = {},
@@ -87,6 +88,7 @@ fun SettingsScreen(
     onPageCountChange: (Int) -> Unit,
     onOpenLogin: () -> Unit,
     onOpenTheme: () -> Unit,
+    onOpenAbout: () -> Unit = {},
     onGuideDebugChange: (Boolean) -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -643,6 +645,18 @@ fun SettingsScreen(
                         onCheckedChange = onGuideDebugChange,
                     )
                 }
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            // 7. 关于与检查更新
+            SectionLabel("关于与更新")
+            IslandCard(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)) {
+                IslandNavRow(
+                    title = "关于 SodaM Mobile",
+                    subtitle = "当前版本 v${appVersion.removePrefix("v")} · 仓库地址、检查更新与代理",
+                    onClick = onOpenAbout,
+                )
             }
 
             Spacer(Modifier.height(bottomInset))
