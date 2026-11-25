@@ -4,7 +4,14 @@ on:
   push:
     tags:
       - 'v*'
+      - '[0-9]*.[0-9]*.*'
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: '可选 Release 版本号（例如 0.2.0；留空则仅打包不发布 Release）'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -14,6 +21,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version & release tag
+        run: |
+          set -e
+          raw_input=""
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF#refs/tags/}" != "${GITHUB_REF}" ]; then
+            raw_input="${GITHUB_REF_NAME}"
+          elif [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            raw_input="$(printf '%s' "${{ inputs.release_version }}" | xargs)"
+          fi
+
+          if [ -n "$raw_input" ]; then
+            release_tag="$raw_input"
+            app_version="${release_tag#v}"
+            app_version="${app_version#V}"
+            base_ver="${app_version%%-*}"
+            IFS='.' read -r v_maj v_min v_pat _ <<< "$base_ver"
+            if [[ "$v_maj" =~ ^[0-9]+$ ]] && [[ "${v_min:-0}" =~ ^[0-9]+$ ]] && [[ "${v_pat:-0}" =~ ^[0-9]+$ ]]; then
+              version_code=$(( v_maj * 10000 + ${v_min:-0} * 100 + ${v_pat:-0} ))
+              [ "$version_code" -lt 1 ] && version_code=1
+            else
+              version_code="${GITHUB_RUN_NUMBER:-1}"
+            fi
+            {
+              echo "RELEASE_TAG=$release_tag"
+              echo "APP_VERSION=$app_version"
+              echo "SODAM_VERSION_NAME=$app_version"
+              echo "SODAM_VERSION_CODE=$version_code"
+            } >> "$GITHUB_ENV"
+          else
+            default_ver="$(grep -oE 'versionName = envVersionName \?: "[^"]+"' android/app/build.gradle.kts | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+            {
+              echo "RELEASE_TAG="
+              echo "APP_VERSION=${default_ver:-0.1.0}"
+            } >> "$GITHUB_ENV"
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -42,7 +87,7 @@ jobs:
       - name: Build native FFI (arm64-v8a)
         env:
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_HOME }}
         run: |
           chmod +x scripts/android-ffi.sh
           scripts/android-ffi.sh arm64-v8a release
@@ -51,28 +96,57 @@ jobs:
         working-directory: android
         run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
-      - name: Rename APK
+      - name: Rename APK & compute checksum
         run: |
           set -e
-          version="$(grep -oE 'versionName = "[^"]+"' android/app/build.gradle.kts | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
           src="$(ls android/app/build/outputs/apk/release/*.apk | head -1)"
-          out="sodam_${version}_arm64.apk"
+          out="sodam_${APP_VERSION}_arm64.apk"
           cp "$src" "$out"
+          sha256sum "$out" > "${out}.sha256"
           echo "APK_PATH=$out" >> "$GITHUB_ENV"
+          echo "APK_SHA_PATH=${out}.sha256" >> "$GITHUB_ENV"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v5
         with:
           name: sodam-release-apk
-          path: sodam_*_arm64.apk
+          path: |
+            sodam_*_arm64.apk
+            sodam_*_arm64.apk.sha256
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: env.RELEASE_TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
-          tag="${GITHUB_REF_NAME}"
-          gh release view "$tag" >/dev/null 2>&1 || \
-            gh release create "$tag" --title "SodaM $tag" --generate-notes
-          gh release upload "$tag" "$APK_PATH" --clobber
+          tag="${RELEASE_TAG}"
+          prev_tag="$(git tag --sort=-creatordate | grep -Fxv "$tag" | head -n 1 || true)"
+
+          {
+            echo "## 更新内容"
+            echo ""
+            if [ -n "$prev_tag" ]; then
+              commits="$(git log "${prev_tag}..HEAD" --no-merges --pretty=format:'- %s (%h)')"
+            else
+              commits="$(git log -n 30 --no-merges --pretty=format:'- %s (%h)')"
+            fi
+            if [ -n "$commits" ]; then
+              printf '%s\n' "$commits"
+            else
+              echo "- 常规构建更新"
+            fi
+            echo ""
+            echo "---"
+            echo ""
+            echo "### 安装产物"
+            echo "- \`${APK_PATH}\`：Android 8.0+（\`arm64-v8a\`）安装包"
+            echo "- \`${APK_SHA_PATH}\`：SHA-256 校验文件"
+          } > release_notes.md
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "SodaM $tag" --notes-file release_notes.md
+          else
+            gh release create "$tag" --title "SodaM $tag" --notes-file release_notes.md
+          fi
+          gh release upload "$tag" "$APK_PATH" "$APK_SHA_PATH" --clobber

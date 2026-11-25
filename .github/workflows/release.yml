@@ -1,9 +1,6 @@
-name: Release packages
+name: Release packages (Desktop Manual)
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       release_tag:
@@ -15,11 +12,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+  group: release-${{ inputs.release_tag }}
   cancel-in-progress: false
 
 env:
-  RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+  RELEASE_TAG: ${{ inputs.release_tag }}
 
 jobs:
   linux-package:
