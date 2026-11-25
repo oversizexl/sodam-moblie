@@ -1,8 +1,15 @@
 package org.sodahub.sodam.ui
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -443,5 +450,182 @@ internal object CachedAudio {
         }
         cachedIds = ids
         cachedAt = at
+    }
+}
+
+internal fun readDownloadDir(path: String): String? =
+    runCatching { File(path).takeIf { it.isFile }?.readText()?.trim() }
+        .getOrNull()
+        ?.takeIf { it.isNotEmpty() }
+
+internal fun writeDownloadDir(path: String, uriOrEmpty: String?) {
+    runCatching {
+        val file = File(path)
+        if (uriOrEmpty.isNullOrBlank()) {
+            file.delete()
+        } else {
+            file.parentFile?.mkdirs()
+            file.writeText(uriOrEmpty)
+        }
+    }
+}
+
+/** 将 SAF Tree URI 转成设置页友好展示的路径文案。 */
+internal fun formatDownloadDirLabel(uriString: String?): String {
+    if (uriString.isNullOrBlank()) return "默认 · 系统音乐目录 (Music/Sodam)"
+    return runCatching {
+        val decoded = android.net.Uri.decode(uriString)
+        val treePart = decoded.substringAfter("/tree/", missingDelimiterValue = decoded)
+        val clean = treePart.substringBefore("/document/").replace("primary:", "内部存储/")
+        clean.ifBlank { "已选自定义目录" }
+    }.getOrDefault("已选自定义目录")
+}
+
+// ---- 切歌触感反馈强度配置 ----
+
+enum class HapticLevel(
+    val value: String,
+    val label: String,
+    val durationMs: Long,
+    val amplitude: Int,
+) {
+    Off("off", "关闭", 0L, 0),
+    Light("light", "轻柔", 12L, 65),
+    Medium("medium", "适中", 18L, 140),
+    Strong("strong", "强劲", 26L, 230),
+}
+
+internal fun readHapticLevel(path: String): HapticLevel {
+    val raw = runCatching { File(path).takeIf { it.isFile }?.readText()?.trim() }.getOrNull()
+    return HapticLevel.entries.firstOrNull { it.value == raw } ?: HapticLevel.Light
+}
+
+internal fun writeHapticLevel(path: String, level: HapticLevel) {
+    runCatching {
+        File(path).apply {
+            parentFile?.mkdirs()
+            writeText(level.value)
+        }
+    }
+}
+
+internal fun performSodamHaptic(context: Context, level: HapticLevel) {
+    if (level == HapticLevel.Off) return
+    runCatching {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val mgr = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            mgr?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        } ?: return
+        if (!vibrator.hasVibrator()) return
+        val amp = if (vibrator.hasAmplitudeControl()) {
+            level.amplitude
+        } else {
+            VibrationEffect.DEFAULT_AMPLITUDE
+        }
+        vibrator.vibrate(VibrationEffect.createOneShot(level.durationMs, amp))
+    }
+}
+
+// ---- 动态背景取色透明度/浓度配置 ----
+
+internal const val DEFAULT_BACKDROP_ALPHA = 0.55f
+
+internal fun readBackdropAlpha(path: String): Float =
+    runCatching { File(path).takeIf { it.isFile }?.readText()?.trim()?.toFloatOrNull() }
+        .getOrNull()
+        ?.coerceIn(0f, 1f)
+        ?: DEFAULT_BACKDROP_ALPHA
+
+internal fun writeBackdropAlpha(path: String, alpha: Float) {
+    runCatching {
+        File(path).apply {
+            parentFile?.mkdirs()
+            writeText("%.2f".format(alpha.coerceIn(0f, 1f)))
+        }
+    }
+}
+
+/**
+ * 兼容全版本 Android 的轻量封面色彩提取器：
+ * 在缩略图网格中采样具有饱和度的主色调与呼应色，无需额外依赖库即可渲染双色流光渐变背景。
+ */
+internal fun extractCoverPalette(bitmap: Bitmap, fallbackPrimary: Color): Pair<Color, Color> {
+    val w = bitmap.width
+    val h = bitmap.height
+    if (w <= 0 || h <= 0) return fallbackPrimary to fallbackPrimary
+    val stepX = (w / 10).coerceAtLeast(1)
+    val stepY = (h / 10).coerceAtLeast(1)
+    val hsv = FloatArray(3)
+    var bestScore = -1f
+    var secondScore = -1f
+    var bestColor = fallbackPrimary
+    var secondColor = fallbackPrimary
+
+    var y = 0
+    while (y < h) {
+        var x = 0
+        while (x < w) {
+            val pixel = bitmap.getPixel(x, y)
+            val alpha = (pixel ushr 24) and 0xFF
+            if (alpha >= 128) {
+                android.graphics.Color.colorToHSV(pixel, hsv)
+                val sat = hsv[1]
+                val valV = hsv[2]
+                // 过滤接近死黑和纯白的像素，优先选色彩鲜明又不过分刺眼的颜色
+                if (valV in 0.14f..0.94f && sat >= 0.15f) {
+                    val score = sat * 1.4f + (1f - kotlin.math.abs(valV - 0.55f))
+                    val c = Color(pixel)
+                    if (score > bestScore) {
+                        secondScore = bestScore
+                        secondColor = bestColor
+                        bestScore = score
+                        bestColor = c
+                    } else if (score > secondScore && colorDistance(c, bestColor) > 0.25f) {
+                        secondScore = score
+                        secondColor = c
+                    }
+                }
+            }
+            x += stepX
+        }
+        y += stepY
+    }
+    return bestColor to (if (secondScore > 0f) secondColor else bestColor)
+}
+
+private fun colorDistance(a: Color, b: Color): Float {
+    val dr = a.red - b.red
+    val dg = a.green - b.green
+    val db = a.blue - b.blue
+    return kotlin.math.sqrt(dr * dr + dg * dg + db * db)
+}
+
+// ---- 播放按钮动画样式配置 ----
+
+enum class PlayButtonStyle(
+    val value: String,
+    val label: String,
+    val description: String,
+) {
+    ProgressRing("ring", "环绕进度", "高对比纯圆外围随歌曲进度流转微光圆环"),
+    FrostedPulse("pulse", "磨砂呼吸", "半透明亚克力外环与播放态低频呼吸光晕"),
+    CapsuleMorph("capsule", "宽胶囊态", "暂停呈正圆、播放时优雅舒展为宽椭圆胶囊"),
+    MinimalContrast("minimal", "纯粹高反差", "极简黑白反差大圆与瞬态扩散水波光圈"),
+}
+
+internal fun readPlayButtonStyle(path: String): PlayButtonStyle {
+    val raw = runCatching { File(path).takeIf { it.isFile }?.readText()?.trim() }.getOrNull()
+    return PlayButtonStyle.entries.firstOrNull { it.value == raw } ?: PlayButtonStyle.ProgressRing
+}
+
+internal fun writePlayButtonStyle(path: String, style: PlayButtonStyle) {
+    runCatching {
+        File(path).apply {
+            parentFile?.mkdirs()
+            writeText(style.value)
+        }
     }
 }

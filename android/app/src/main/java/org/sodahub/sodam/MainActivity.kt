@@ -2,14 +2,21 @@ package org.sodahub.sodam
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import java.io.File
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
         // Android 13+ 需要用户授权才能显示媒体通知（后台播放的控制入口）。
         if (
@@ -37,6 +44,10 @@ class MainActivity : ComponentActivity() {
         val homeQueueFile = File(filesDir, "home_queue.json").absolutePath
         val playModeFile = File(filesDir, "play_mode.txt").absolutePath
         val sceneFile = File(filesDir, "scene_mode.txt").absolutePath
+        val downloadDirFile = File(filesDir, "download_dir.txt").absolutePath
+        val hapticFile = File(filesDir, "haptic_level.txt").absolutePath
+        val backdropAlphaFile = File(filesDir, "backdrop_alpha.txt").absolutePath
+        val playButtonStyleFile = File(filesDir, "play_button_style.txt").absolutePath
         setContent {
             SodamApp(
                 deviceFile = deviceFile,
@@ -55,6 +66,10 @@ class MainActivity : ComponentActivity() {
                 homeQueueFile = homeQueueFile,
                 playModeFile = playModeFile,
                 sceneFile = sceneFile,
+                downloadDirFile = downloadDirFile,
+                hapticFile = hapticFile,
+                backdropAlphaFile = backdropAlphaFile,
+                playButtonStyleFile = playButtonStyleFile,
             )
         }
     }

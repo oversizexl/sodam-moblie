@@ -23,6 +23,8 @@ import uniffi.sodam_ffi.Track
  * 服务端「我喜欢的音乐」状态：只缓存已喜欢曲目的 id，真正的喜欢/取消走接口。
  *
  * 登录后由 [attach] + [reload] 拉一次；点爱心先乐观更新，接口失败再回滚。
+ * 针对冷启动优先起播的缓存歌曲（尚不在 Rust 内存 songs 表中），若首次调用报错，
+ * 自动通过搜索把该曲目注册进内存曲目表后立即重试。
  */
 internal object LikedTracks {
     private const val LIKED_PLAYLIST = "我喜欢的音乐"
@@ -34,11 +36,18 @@ internal object LikedTracks {
     var likedIds by mutableStateOf<Set<String>>(emptySet())
         private set
 
+    /** 是否已至少与服务端同步过一次完整歌单曲目列表。 */
+    var loaded by mutableStateOf(false)
+        private set
+
     val count: Int get() = likedIds.size
 
     fun attach(c: SodaClient?) {
         client = c
-        if (c == null) likedIds = emptySet()
+        if (c == null) {
+            likedIds = emptySet()
+            loaded = false
+        }
     }
 
     fun isLiked(trackId: String): Boolean = trackId.isNotEmpty() && trackId in likedIds
@@ -49,25 +58,46 @@ internal object LikedTracks {
         val ids = withContext(Dispatchers.IO) {
             runCatching {
                 val liked = c.myPlaylists().firstOrNull { it.name.contains(LIKED_PLAYLIST) }
-                    ?: return@runCatching emptySet()
-                c.playlistTracks(liked.id).map { it.id }.toSet()
-            }.getOrDefault(emptySet())
+                    ?: return@runCatching null
+                c.playlistTracks(liked.id).mapNotNullTo(HashSet()) { it.id.takeIf(String::isNotEmpty) }
+            }.getOrNull()
         }
-        likedIds = ids
+        if (ids != null) {
+            likedIds = ids
+            loaded = true
+        }
     }
 
     /** 用服务端歌单里的曲目刷新已喜欢集合（打开「我喜欢的音乐」时调用）。 */
     fun setFromServerTracks(tracks: List<Track>) {
         likedIds = tracks.mapNotNullTo(HashSet()) { it.id.takeIf(String::isNotEmpty) }
+        loaded = true
     }
 
-    /** 点击爱心：乐观切换 + 调接口，失败回滚。 */
+    /** 点击爱心：乐观切换 + 调接口；缓存首播曲目未注册进本地表时自动检索补录后重试。 */
     fun toggle(track: Track) {
         val c = client ?: return
+        if (track.id.isBlank()) return
         val wasLiked = isLiked(track.id)
         likedIds = if (wasLiked) likedIds - track.id else likedIds + track.id
         scope.launch {
             val ok = withContext(Dispatchers.IO) {
+                val firstTry = runCatching {
+                    if (wasLiked) c.unlikeTrack(track.id) else c.likeTrack(track.id)
+                }
+                if (firstTry.isSuccess) return@withContext true
+
+                // 冷启动缓存歌曲尚不在 Rust self.songs 表里：先检索将其载入本地表，再重试喜欢/取消。
+                val queryPrimary = "${track.name} ${track.artist}".trim()
+                val registered = runCatching {
+                    val found = if (queryPrimary.isNotEmpty()) c.search(queryPrimary) else emptyList()
+                    if (found.none { it.id == track.id } && track.name.isNotBlank()) {
+                        c.search(track.name)
+                    }
+                    true
+                }.getOrDefault(false)
+
+                if (!registered) return@withContext false
                 runCatching {
                     if (wasLiked) c.unlikeTrack(track.id) else c.likeTrack(track.id)
                 }.isSuccess

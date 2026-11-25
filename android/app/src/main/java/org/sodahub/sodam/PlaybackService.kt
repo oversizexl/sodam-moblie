@@ -131,6 +131,7 @@ class PlaybackService : MediaSessionService() {
                 .add(SessionCommand(CMD_NEXT, Bundle.EMPTY))
                 .add(SessionCommand(CMD_PREVIOUS, Bundle.EMPTY))
                 .add(SessionCommand(CMD_SET_MODE, Bundle.EMPTY))
+                .add(SessionCommand(CMD_REFRESH_QUALITY, Bundle.EMPTY))
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(commands)
@@ -155,6 +156,7 @@ class PlaybackService : MediaSessionService() {
                     val mode = PlaybackMode.entries.firstOrNull { it.name == name }
                     if (mode != null) applyMode(mode)
                 }
+                CMD_REFRESH_QUALITY -> refreshQuality()
                 else -> return Futures.immediateFuture(
                     SessionResult(SessionError.ERROR_NOT_SUPPORTED),
                 )
@@ -316,6 +318,22 @@ class PlaybackService : MediaSessionService() {
             }
         } else if (PlaybackHub.index >= 0) {
             scheduleNext(PlaybackHub.index)
+        }
+    }
+
+    /** 设置页切换音质后：作废旧的预解析下一首，按新音质重新排期与预取。 */
+    private fun refreshQuality() {
+        nextToken++
+        nextQueueIndex = null
+        nextResolved = null
+        val from = player.currentMediaItemIndex + 1
+        if (player.mediaItemCount > from) {
+            player.removeMediaItems(from, player.mediaItemCount)
+        }
+        val idx = PlaybackHub.index
+        if (idx >= 0) {
+            scheduleNext(idx)
+            prefetchAround(idx)
         }
     }
 

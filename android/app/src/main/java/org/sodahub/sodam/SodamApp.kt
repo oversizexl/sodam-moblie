@@ -5,27 +5,49 @@ import android.os.Bundle
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,20 +56,35 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
@@ -68,17 +105,25 @@ import org.sodahub.sodam.ui.SearchScreen
 import org.sodahub.sodam.ui.SettingsScreen
 import org.sodahub.sodam.ui.SodamTheme
 import org.sodahub.sodam.ui.ThemeScreen
+import org.sodahub.sodam.ui.TrackDownloader
+import org.sodahub.sodam.ui.TrackLinkDetailScreen
+import org.sodahub.sodam.ui.UI_STYLE_CLEAN
 import org.sodahub.sodam.ui.SavedScene
+import org.sodahub.sodam.ui.HapticLevel
+import org.sodahub.sodam.ui.PlayButtonStyle
 import org.sodahub.sodam.ui.clearCookie
 import org.sodahub.sodam.ui.clearSavedScene
 import org.sodahub.sodam.ui.nextMode
 import org.sodahub.sodam.ui.paletteStyleLabel
+import org.sodahub.sodam.ui.readBackdropAlpha
 import org.sodahub.sodam.ui.readCacheLimit
 import org.sodahub.sodam.ui.readCookie
 import org.sodahub.sodam.ui.readGuideDebug
 import org.sodahub.sodam.ui.readGuideSeen
+import org.sodahub.sodam.ui.readHapticLevel
 import org.sodahub.sodam.ui.readHomeQueue
 import org.sodahub.sodam.ui.readPageCount
+import org.sodahub.sodam.ui.readPlayButtonStyle
 import org.sodahub.sodam.ui.readPlayMode
 import org.sodahub.sodam.ui.readQuality
 import org.sodahub.sodam.ui.readSavedScene
@@ -90,10 +135,13 @@ import org.sodahub.sodam.ui.readable
 import org.sodahub.sodam.ui.themeColorLabel
 import org.sodahub.sodam.ui.themeLabel
 import org.sodahub.sodam.ui.uiStyleLabel
+import org.sodahub.sodam.ui.writeBackdropAlpha
 import org.sodahub.sodam.ui.writeGuideDebug
 import org.sodahub.sodam.ui.writeGuideSeen
+import org.sodahub.sodam.ui.writeHapticLevel
 import org.sodahub.sodam.ui.writeHomeQueue
 import org.sodahub.sodam.ui.writePageCount
+import org.sodahub.sodam.ui.writePlayButtonStyle
 import org.sodahub.sodam.ui.writePlayMode
 import org.sodahub.sodam.ui.writeSavedScene
 import org.sodahub.sodam.ui.writeTheme
@@ -112,7 +160,14 @@ private enum class RootTab(val label: String) {
     Settings("设置"),
 }
 
-private enum class RootPage { Main, Login, Theme, Search }
+private sealed interface RootPage {
+    data object Main : RootPage
+    data object Login : RootPage
+    data object Theme : RootPage
+    data object Search : RootPage
+    data class TrackAlbumLookup(val track: Track) : RootPage
+    data class TrackArtistLookup(val track: Track) : RootPage
+}
 
 /**
  * 应用根：初始化客户端、恢复登录态、底部三个 Tab。
@@ -137,11 +192,18 @@ fun SodamApp(
     homeQueueFile: String,
     playModeFile: String,
     sceneFile: String,
+    downloadDirFile: String,
+    hapticFile: String,
+    backdropAlphaFile: String,
+    playButtonStyleFile: String,
 ) {
     var themeMode by remember { mutableStateOf(readTheme(themeFile)) }
     var themeColor by remember { mutableStateOf(readThemeColor(themeColorFile)) }
     var paletteStyle by remember { mutableStateOf(readThemeStyle(themeStyleFile)) }
     var uiStyle by remember { mutableStateOf(readUiStyle(uiStyleFile)) }
+    var hapticLevel by remember { mutableStateOf(readHapticLevel(hapticFile)) }
+    var backdropAlpha by remember { mutableFloatStateOf(readBackdropAlpha(backdropAlphaFile)) }
+    var playButtonStyle by remember { mutableStateOf(readPlayButtonStyle(playButtonStyleFile)) }
 
     SodamTheme(themeMode, themeColor, paletteStyle, uiStyle) {
         var client by remember { mutableStateOf<SodaClient?>(null) }
@@ -149,7 +211,7 @@ fun SodamApp(
         var initAttempt by remember { mutableIntStateOf(0) }
         var account by remember { mutableStateOf<AccountInfo?>(null) }
         var tab by remember { mutableStateOf(RootTab.Home) }
-        var page by remember { mutableStateOf(RootPage.Main) }
+        var page by remember { mutableStateOf<RootPage>(RootPage.Main) }
         var pageCount by remember { mutableStateOf(readPageCount(pagesFile)) }
         var playMode by remember {
             val restored = readPlayMode(playModeFile)
@@ -225,6 +287,18 @@ fun SodamApp(
             CachedAudio.refresh()
         }
 
+        // 从手机文件管理器等外部应用返回前台时，重新核验已下载物理文件是否存在。
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    scope.launch { TrackDownloader.reconcileLocalFiles() }
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
+
         LaunchedEffect(initAttempt) {
             initError = ""
             try {
@@ -235,6 +309,7 @@ fun SodamApp(
                 }
                 // 「喜欢」写服务端：拿到 client 后挂上；登录校验后再异步拉一次已喜欢曲目。
                 LikedTracks.attach(created)
+                TrackDownloader.init(context, created, downloadDirFile)
                 // 先本地起播：只读磁盘，不挡网络与登录校验，用户几乎立刻有声音。
                 val booted = playCachedFirst(created)
                 // 没有可秒开的缓存时先占住加载态，避免闪一帧空状态。
@@ -587,13 +662,12 @@ fun SodamApp(
             }
         }
 
-        // 发现页推荐歌单：登录态就绪即加载，不依赖首页推荐是否完成，
-        // 避免首页请求慢/卡住时发现页一直空白；未登录则不发请求。
+        // 发现页推荐歌单：登录态就绪即独立预热；与“我的歌单”完全解耦不互锁。
         LaunchedEffect(client, sessionReady, hasSession) {
             val active = client ?: return@LaunchedEffect
             if (!sessionReady || !hasSession) return@LaunchedEffect
-            if (discoverState.recommendedLoaded || discoverState.busy) return@LaunchedEffect
-            discoverState.busy = true
+            if (discoverState.recommendedLoaded || discoverState.recommendedBusy) return@LaunchedEffect
+            discoverState.recommendedBusy = true
             try {
                 discoverState.recommended = withContext(Dispatchers.IO) {
                     active.discoverPlaylists()
@@ -602,7 +676,26 @@ fun SodamApp(
             } catch (e: SodaException) {
                 discoverState.status = e.readable()
             } finally {
-                discoverState.busy = false
+                discoverState.recommendedBusy = false
+            }
+        }
+
+        // 我的歌单（含「我喜欢的音乐」）：登录态就绪后立刻独立并行预加载，打开发现页直接展示。
+        LaunchedEffect(client, sessionReady, hasSession) {
+            val active = client ?: return@LaunchedEffect
+            if (!sessionReady || !hasSession) return@LaunchedEffect
+            if (discoverState.playlistsLoaded || discoverState.playlistsBusy) return@LaunchedEffect
+            discoverState.playlistsBusy = true
+            try {
+                val list = withContext(Dispatchers.IO) { active.myPlaylists() }
+                discoverState.playlists = list
+                if (list.isNotEmpty()) {
+                    discoverState.playlistsLoaded = true
+                }
+            } catch (e: SodaException) {
+                discoverState.status = e.readable()
+            } finally {
+                discoverState.playlistsBusy = false
             }
         }
 
@@ -640,7 +733,7 @@ fun SodamApp(
             return@SodamTheme
         }
 
-        when (page) {
+        when (val currentPage = page) {
             RootPage.Login -> {
                 LoginScreen(
                     client = active,
@@ -706,77 +799,114 @@ fun SodamApp(
                 return@SodamTheme
             }
 
+            is RootPage.TrackAlbumLookup -> {
+                TrackLinkDetailScreen(
+                    client = active,
+                    track = currentPage.track,
+                    lookupAlbum = true,
+                    onBack = { page = RootPage.Main },
+                    onPlay = { queue, index ->
+                        startPlay(queue, index, HOME_RECOMMEND)
+                        page = RootPage.Main
+                        tab = RootTab.Home
+                    },
+                )
+                return@SodamTheme
+            }
+
+            is RootPage.TrackArtistLookup -> {
+                TrackLinkDetailScreen(
+                    client = active,
+                    track = currentPage.track,
+                    lookupAlbum = false,
+                    onBack = { page = RootPage.Main },
+                    onPlay = { queue, index ->
+                        startPlay(queue, index, HOME_RECOMMEND)
+                        page = RootPage.Main
+                        tab = RootTab.Home
+                    },
+                )
+                return@SodamTheme
+            }
+
             RootPage.Main -> Unit
         }
 
         // 非首页 Tab 上按返回：先回首页，再按一次才退出 App。
         BackHandler(enabled = tab != RootTab.Home) { tab = RootTab.Home }
 
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                when (tab) {
-                    RootTab.Home -> Box(Modifier.fillMaxSize()) {
-                        PlayerHomeScreen(
-                            client = active,
-                            queue = hubQueue,
-                            currentIndex = currentIndex,
-                            currentTrackId = currentTrack?.id,
-                            isPlaying = isPlaying,
-                            positionMs = positionState,
-                            durationMs = durationState,
-                            qualities = qualities,
-                            preview = currentPreview,
-                            playMode = playMode,
-                            loading = loading,
-                            refreshing = homeRefreshing,
-                            status = homeStatus,
-                            sleepRemainingMs = sleepRemainingMs,
-                            scenes = scenes,
-                            scenesLoading = scenesLoading,
-                            currentSceneName = currentSceneName,
-                            onLoadScenes = { loadScenes() },
-                            onSelectScene = { scene -> selectScene(scene) },
-                            onSelectRecommendMode = { refreshHome(active) },
-                            onToggle = { togglePlayback() },
-                            onSeek = { ms ->
-                                controller?.seekTo(ms)
-                                positionState.longValue = ms
-                            },
-                            onSelectIndex = { index -> playIndex(index) },
-                            onSelectMode = { mode ->
-                                playMode = mode
-                                writePlayMode(playModeFile, mode)
-                                // 服务端按模式决定是否排队下一首 / 单曲循环。
-                                controller?.sendCustomCommand(
-                                    SessionCommand(CMD_SET_MODE, Bundle.EMPTY),
-                                    Bundle().apply { putString(ARG_MODE, mode.name) },
-                                )
-                            },
-                            onLoadMore = { loadMoreQueue(active) },
-                            onRefresh = { refreshHome(active) },
-                            onOpenSearch = { page = RootPage.Search },
-                            onStartSleepTimer = { minutes ->
-                                val total = minutes.coerceAtLeast(1) * 60_000L
-                                sleepRemainingMs = total
-                                sleepDeadline = SystemClock.elapsedRealtime() + total
-                            },
-                            onCancelSleepTimer = {
-                                sleepDeadline = null
-                                sleepRemainingMs = 0L
-                            },
-                            needsLogin = !hasSession,
-                            onOpenLogin = { page = RootPage.Login },
-                        )
-                        // 有歌在播后再出引导，避免盖在首屏加载态上显得乱。
-                        if (showGuide && currentTrack != null) {
-                            SwipeGuideOverlay(
-                                onDismiss = {
-                                    showGuide = false
-                                    writeGuideSeen(guideFile)
-                                },
+        val isCleanMode = uiStyle == UI_STYLE_CLEAN
+        val navBarInsetsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val miniTrack = if (tab != RootTab.Home) currentTrack else null
+        val hasMiniPlayer = miniTrack != null
+        val homeBottomInset = (if (isCleanMode) 76.dp else 82.dp) + navBarInsetsBottom
+        val subPageBottomInset = (if (hasMiniPlayer) 156.dp else 88.dp) + navBarInsetsBottom
+
+        Box(Modifier.fillMaxSize()) {
+            Crossfade(
+                targetState = tab,
+                animationSpec = tween(durationMillis = 180),
+                label = "root_tab_crossfade",
+                modifier = Modifier.fillMaxSize(),
+            ) { activeTab ->
+                when (activeTab) {
+                    RootTab.Home -> PlayerHomeScreen(
+                        client = active,
+                        queue = hubQueue,
+                        currentIndex = currentIndex,
+                        currentTrackId = currentTrack?.id,
+                        isPlaying = isPlaying,
+                        positionMs = positionState,
+                        durationMs = durationState,
+                        qualities = qualities,
+                        preview = currentPreview,
+                        playMode = playMode,
+                        loading = loading,
+                        refreshing = homeRefreshing,
+                        status = homeStatus,
+                        sleepRemainingMs = sleepRemainingMs,
+                        scenes = scenes,
+                        scenesLoading = scenesLoading,
+                        currentSceneName = currentSceneName,
+                        backdropAlpha = backdropAlpha,
+                        hapticLevel = hapticLevel,
+                        playButtonStyle = playButtonStyle,
+                        bottomInset = homeBottomInset,
+                        onLoadScenes = { loadScenes() },
+                        onSelectScene = { scene -> selectScene(scene) },
+                        onSelectRecommendMode = { refreshHome(active) },
+                        onToggle = { togglePlayback() },
+                        onSeek = { ms ->
+                            controller?.seekTo(ms)
+                            positionState.longValue = ms
+                        },
+                        onSelectIndex = { index -> playIndex(index) },
+                        onSelectMode = { mode ->
+                            playMode = mode
+                            writePlayMode(playModeFile, mode)
+                            controller?.sendCustomCommand(
+                                SessionCommand(CMD_SET_MODE, Bundle.EMPTY),
+                                Bundle().apply { putString(ARG_MODE, mode.name) },
                             )
-                        }
-                    }
+                        },
+                        onLoadMore = { loadMoreQueue(active) },
+                        onRefresh = { refreshHome(active) },
+                        onOpenSearch = { page = RootPage.Search },
+                        onOpenAlbumForTrack = { t -> page = RootPage.TrackAlbumLookup(t) },
+                        onOpenArtistForTrack = { t -> page = RootPage.TrackArtistLookup(t) },
+                        onOpenSettings = { tab = RootTab.Settings },
+                        onStartSleepTimer = { minutes ->
+                            val total = minutes.coerceAtLeast(1) * 60_000L
+                            sleepRemainingMs = total
+                            sleepDeadline = SystemClock.elapsedRealtime() + total
+                        },
+                        onCancelSleepTimer = {
+                            sleepDeadline = null
+                            sleepRemainingMs = 0L
+                        },
+                        needsLogin = !hasSession,
+                        onOpenLogin = { page = RootPage.Login },
+                    )
 
                     RootTab.Discover -> DiscoverScreen(
                         state = discoverState,
@@ -785,6 +915,8 @@ fun SodamApp(
                         loading = loading,
                         isPlaying = isPlaying,
                         currentTrackId = currentTrack?.id,
+                        sessionReady = sessionReady,
+                        bottomInset = subPageBottomInset,
                         onPlay = { queue, index, request ->
                             startPlay(queue, index, request)
                             tab = RootTab.Home
@@ -801,6 +933,28 @@ fun SodamApp(
                         pageCount = pageCount,
                         themeSummary = "${themeLabel(themeMode)} · ${uiStyleLabel(uiStyle)} · ${themeColorLabel(themeColor)} · ${paletteStyleLabel(paletteStyle)}",
                         guideDebug = guideDebug,
+                        backdropAlpha = backdropAlpha,
+                        hapticLevel = hapticLevel,
+                        playButtonStyle = playButtonStyle,
+                        bottomInset = subPageBottomInset,
+                        onBackdropAlphaChange = { a ->
+                            backdropAlpha = a
+                            writeBackdropAlpha(backdropAlphaFile, a)
+                        },
+                        onHapticLevelChange = { lvl ->
+                            hapticLevel = lvl
+                            writeHapticLevel(hapticFile, lvl)
+                        },
+                        onPlayButtonStyleChange = { style ->
+                            playButtonStyle = style
+                            writePlayButtonStyle(playButtonStyleFile, style)
+                        },
+                        onQualityChanged = {
+                            controller?.sendCustomCommand(
+                                SessionCommand(CMD_REFRESH_QUALITY, Bundle.EMPTY),
+                                Bundle.EMPTY,
+                            )
+                        },
                         onPageCountChange = { pages ->
                             pageCount = pages
                             writePageCount(pagesFile, pages)
@@ -816,54 +970,281 @@ fun SodamApp(
                 }
             }
 
-            if (tab != RootTab.Home && currentTrack != null) {
-                PlayerBar(
-                    track = currentTrack,
-                    isPlaying = isPlaying,
-                    positionMs = positionState,
-                    durationMs = durationState,
-                    onToggle = { togglePlayback() },
-                    onPrevious = {
-                        controller?.sendCustomCommand(
-                            SessionCommand(CMD_PREVIOUS, Bundle.EMPTY),
-                            Bundle.EMPTY,
-                        )
-                    },
-                    onNext = {
-                        controller?.sendCustomCommand(
-                            SessionCommand(CMD_NEXT, Bundle.EMPTY),
-                            Bundle.EMPTY,
-                        )
-                    },
-                    onSeek = { ms ->
-                        controller?.seekTo(ms)
-                        positionState.longValue = ms
-                    },
-                    onOpen = { tab = RootTab.Home },
-                )
+            // 底部控制区：简洁模式为悬浮胶囊，Material You 为固定贴底栏
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .then(if (isCleanMode) Modifier.navigationBarsPadding() else Modifier),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (miniTrack != null) {
+                    PlayerBar(
+                        track = miniTrack,
+                        isPlaying = isPlaying,
+                        positionMs = positionState,
+                        durationMs = durationState,
+                        playButtonStyle = playButtonStyle,
+                        onToggle = { togglePlayback() },
+                        onPrevious = {
+                            controller?.sendCustomCommand(
+                                SessionCommand(CMD_PREVIOUS, Bundle.EMPTY),
+                                Bundle.EMPTY,
+                            )
+                        },
+                        onNext = {
+                            controller?.sendCustomCommand(
+                                SessionCommand(CMD_NEXT, Bundle.EMPTY),
+                                Bundle.EMPTY,
+                            )
+                        },
+                        onSeek = { ms ->
+                            controller?.seekTo(ms)
+                            positionState.longValue = ms
+                        },
+                        onOpen = { tab = RootTab.Home },
+                    )
+                }
+                if (isCleanMode) {
+                    FloatingCleanNavBar(
+                        current = tab,
+                        onSelect = { tab = it },
+                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 10.dp),
+                    )
+                } else {
+                    MaterialFixedNavBar(
+                        current = tab,
+                        transparent = (tab == RootTab.Home),
+                        onSelect = { tab = it },
+                    )
+                }
             }
 
-            BottomTabs(tab) { tab = it }
+            // 引导提示置灰层：放在最外层全屏 Box，100% 覆盖顶部状态栏、主内容与底部导航栏！
+            if (tab == RootTab.Home && showGuide && currentTrack != null) {
+                SwipeGuideOverlay(
+                    onDismiss = {
+                        showGuide = false
+                        writeGuideSeen(guideFile)
+                    },
+                )
+            }
         }
     }
 }
 
+/**
+ * 简洁模式悬浮胶囊导航栏（NeriPlayer 液态悬浮交互）：
+ * - 悬浮圆角胶囊 + 柔和投影与高光描边；
+ * - 支持直接点击，以及按下/长按左右拖动手指连续滑动高亮游标并切换页面（带震动反馈）。
+ */
 @Composable
-private fun BottomTabs(current: RootTab, onSelect: (RootTab) -> Unit) {
-    Surface(tonalElevation = 3.dp) {
-        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = 4.dp)) {
-            RootTab.entries.forEach { tab ->
-                TextButton(onClick = { onSelect(tab) }, modifier = Modifier.weight(1f)) {
-                    Text(
-                        tab.label,
-                        color = if (current == tab) {
+private fun FloatingCleanNavBar(
+    current: RootTab,
+    onSelect: (RootTab) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val tabs = RootTab.entries
+    val selectedIndex = tabs.indexOf(current).coerceAtLeast(0)
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+
+    var barWidthPx by remember { mutableIntStateOf(1) }
+    var isDragging by remember { mutableStateOf(false) }
+    var dragPointerX by remember { mutableFloatStateOf(0f) }
+    val latestCurrent by rememberUpdatedState(current)
+    val latestOnSelect by rememberUpdatedState(onSelect)
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .shadow(
+                elevation = 14.dp,
+                shape = CircleShape,
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f),
+            )
+            .clip(CircleShape)
+            .border(
+                width = 0.8.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f),
+                shape = CircleShape,
+            ),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
+        tonalElevation = 8.dp,
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(4.dp)
+                .onSizeChanged { barWidthPx = it.width.coerceAtLeast(1) }
+                // 关键修复：key 只绑定 tabs.size，绝不绑定 current，避免切换 Tab 时重启手势协程导致卡死！
+                .pointerInput(tabs.size) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val startX = down.position.x
+                        dragPointerX = startX
+                        try {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) {
+                                    val targetIdx = ((change.position.x / barWidthPx.toFloat()) * tabs.size)
+                                        .toInt()
+                                        .coerceIn(0, tabs.lastIndex)
+                                    if (tabs[targetIdx] != latestCurrent) {
+                                        latestOnSelect(tabs[targetIdx])
+                                    }
+                                    break
+                                }
+                                val dx = kotlin.math.abs(change.position.x - startX)
+                                val heldMs = change.uptimeMillis - down.uptimeMillis
+                                if (isDragging || dx > 8f || heldMs > 120L) {
+                                    if (!isDragging) {
+                                        isDragging = true
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
+                                    dragPointerX = change.position.x.coerceIn(0f, barWidthPx.toFloat())
+                                    val hoverIdx = ((dragPointerX / barWidthPx.toFloat()) * tabs.size)
+                                        .toInt()
+                                        .coerceIn(0, tabs.lastIndex)
+                                    if (tabs[hoverIdx] != latestCurrent) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        latestOnSelect(tabs[hoverIdx])
+                                    }
+                                    change.consume()
+                                }
+                            }
+                        } finally {
+                            isDragging = false
+                        }
+                    }
+                },
+        ) {
+            val slotWidth = maxWidth / tabs.size
+            val targetOffset = if (isDragging) {
+                val fingerDp = with(density) { dragPointerX.toDp() }
+                (fingerDp - slotWidth / 2).coerceIn(0.dp, maxWidth - slotWidth)
+            } else {
+                slotWidth * selectedIndex
+            }
+            val indicatorOffset by animateDpAsState(
+                targetValue = targetOffset,
+                animationSpec = if (isDragging) {
+                    spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessHigh)
+                } else {
+                    spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow)
+                },
+                label = "nav_indicator_x",
+            )
+            val indicatorScale by animateFloatAsState(
+                targetValue = if (isDragging) 1.05f else 1f,
+                animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMedium),
+                label = "nav_indicator_scale",
+            )
+
+            // 液态滑动高亮药丸底板
+            Box(
+                modifier = Modifier
+                    .offset(x = indicatorOffset)
+                    .width(slotWidth)
+                    .fillMaxHeight()
+                    .graphicsLayer {
+                        scaleX = indicatorScale
+                        scaleY = indicatorScale
+                    }
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = if (isDragging) 0.22f else 0.14f)),
+            )
+
+            // 前景图标与标签
+            Row(modifier = Modifier.fillMaxSize()) {
+                tabs.forEach { tabItem ->
+                    val selected = current == tabItem
+                    val iconRes = when (tabItem) {
+                        RootTab.Home -> R.drawable.ic_home
+                        RootTab.Discover -> R.drawable.ic_discover
+                        RootTab.Settings -> R.drawable.ic_settings
+                    }
+                    val tint by animateColorAsState(
+                        targetValue = if (selected) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
+                        label = "clean_tab_tint",
                     )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(
+                            painter = painterResource(iconRes),
+                            contentDescription = tabItem.label,
+                            modifier = Modifier.size(20.dp),
+                            tint = tint,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = tabItem.label,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 10.5.sp,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            ),
+                            color = tint,
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Material You 模式底部固定导航栏：标准 Material 3 贴底风格，不再悬浮。
+ * 在首页时透明融于流光背景，非首页时展示统一容器底色。
+ */
+@Composable
+private fun MaterialFixedNavBar(
+    current: RootTab,
+    transparent: Boolean = false,
+    onSelect: (RootTab) -> Unit,
+) {
+    NavigationBar(
+        containerColor = if (transparent) {
+            Color.Transparent
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
+        },
+        tonalElevation = if (transparent) 0.dp else 6.dp,
+    ) {
+        RootTab.entries.forEach { tabItem ->
+            val selected = current == tabItem
+            val iconRes = when (tabItem) {
+                RootTab.Home -> R.drawable.ic_home
+                RootTab.Discover -> R.drawable.ic_discover
+                RootTab.Settings -> R.drawable.ic_settings
+            }
+            NavigationBarItem(
+                selected = selected,
+                onClick = { onSelect(tabItem) },
+                icon = {
+                    Icon(
+                        painter = painterResource(iconRes),
+                        contentDescription = tabItem.label,
+                        modifier = Modifier.size(22.dp),
+                    )
+                },
+                label = {
+                    Text(
+                        text = tabItem.label,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    )
+                },
+            )
         }
     }
 }

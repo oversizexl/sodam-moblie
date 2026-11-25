@@ -18,6 +18,7 @@ const val CMD_PLAY_INDEX = "org.sodahub.sodam.PLAY_INDEX"
 const val CMD_NEXT = "org.sodahub.sodam.NEXT"
 const val CMD_PREVIOUS = "org.sodahub.sodam.PREVIOUS"
 const val CMD_SET_MODE = "org.sodahub.sodam.SET_MODE"
+const val CMD_REFRESH_QUALITY = "org.sodahub.sodam.REFRESH_QUALITY"
 const val ARG_INDEX = "index"
 const val ARG_MODE = "mode"
 
