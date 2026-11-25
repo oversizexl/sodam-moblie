@@ -140,13 +140,23 @@ cd android
 - **账号与签名**：首次打开可在登录页通过扫码或粘贴 Cookie 登录；Android 端当前直接使用内置默认 [`libmssdk`](https://github.com/sodahub-org/libmssdk) 签名服务（暂未在设置页开放自定义签名地址入口）。
 - **音质偏好**：支持自动（`auto`）、Hi-Res 无损（`hires`）、无损（`lossless`）、杜比全景声（`dolby`）、极高（`highest`）、较高（`medium`）、流畅（`low`）。其中「自动」不设上限，由服务端按账号权益与单曲可用档位收敛。
 - **外观与下载**：动态渐变背景透明度、播放按钮动效样式、底部导航栏风格（简洁 / Material You）、切歌震动强度及自定义下载目录均可在应用内设置与主题页调整并持久化保存。
+- **关于与在线更新**：设置页内置「关于」页面，支持展示当前版本号、直达开源仓库、配置更新代理及在线检查 GitHub Release 并下载安装更新包。
 - **隐私安全**：请勿在公共仓库或日志中提交个人 Cookie、签名 Token、抓包签名头或真实设备指纹。
 
 ---
 
-## 上游与相关文档
+## 致谢
 
-- 上游桌面端仓库：[sodahub-org/sodam](https://github.com/sodahub-org/sodam)（Linux / macOS / Windows 桌面客户端源码与发行版安装方式请前往上游查看）
+感谢以下社区与开源项目对本项目的启发与支持：
+
+- [**LINUX DO 社区**](https://linux.do) —— 开源交流与反馈社区支持
+- [**sodahub-org/sodam**](https://github.com/sodahub-org/sodam) —— 提供上游桌面端项目、`sodam-core` 核心逻辑与 `libresoda` 音乐能力基础
+- [**cwuom/NeriPlayer**](https://github.com/cwuom/NeriPlayer) —— 优秀的客户端交互设计与视觉体验参考
+
+---
+
+## 相关文档
+
 - 分层与线程架构：[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - 隐私说明：[`PRIVACY.md`](PRIVACY.md)
 - 贡献指南：[`CONTRIBUTING.md`](CONTRIBUTING.md)
